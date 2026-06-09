@@ -20,7 +20,6 @@ const INVALID_RESULT: NumericCompareResult = {
 };
 
 const MAX_INPUT_LENGTH = 80;
-const TOLERANCE_DENOMINATOR = 1_000_000_000n;
 
 export function numericEquivalent(student: string, expected: string): NumericCompareResult {
   const studentValue = evaluate(student);
@@ -31,7 +30,9 @@ export function numericEquivalent(student: string, expected: string): NumericCom
   }
 
   return {
-    equivalent: withinTolerance(studentValue, expectedValue),
+    equivalent:
+      studentValue.numerator === expectedValue.numerator &&
+      studentValue.denominator === expectedValue.denominator,
   };
 }
 
@@ -208,11 +209,6 @@ function negate(value: Rational) {
 
 function percent(value: Rational) {
   return rational(value.numerator, value.denominator * 100n);
-}
-
-function withinTolerance(left: Rational, right: Rational) {
-  const difference = subtract(left, right);
-  return abs(difference.numerator) * TOLERANCE_DENOMINATOR <= difference.denominator;
 }
 
 class Parser {

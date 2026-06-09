@@ -15,6 +15,7 @@ describe("numericEquivalent", () => {
     ["6÷3", "2"],
     ["(1/8+7/8)", "1"],
     ["40%", "0.4"],
+    ["1/3", "2/6"],
     [".5", "1/2"],
     ["5.", "5"],
     [" 1 / 2 ", "0.5"],
@@ -32,6 +33,13 @@ describe("numericEquivalent", () => {
 
   it("returns false without a format reason when valid numbers differ", () => {
     expect(numericEquivalent("0.6", "1/2")).toEqual({ equivalent: false });
+  });
+
+  it.each([
+    ["0.5000000001", "0.5"],
+    ["1/3", "0.3333333333"],
+  ])("requires exact rational equivalence for %s and %s", (student, expected) => {
+    expect(numericEquivalent(student, expected)).toEqual({ equivalent: false });
   });
 
   it.each([
