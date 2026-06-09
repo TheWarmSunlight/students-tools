@@ -376,8 +376,7 @@ function splitBy(raw: string, delimiter: string) {
 }
 
 function isMatchingAnswerSegment(answer: string) {
-  const parts = answer.split("-");
-  return parts.length === 2 && parts.every((part) => part.trim().length > 0);
+  return /^(?:[\u2460-\u2473]|\d+)-[A-Za-z]$/.test(answer);
 }
 
 function hasSupportedGradingLabels(labels: string[], modes: GradingMode[]) {

@@ -194,6 +194,32 @@ describe("importQuestionsFromWorkbook", () => {
     });
   });
 
+  it("reports matching answers without indexed left side and letter right side", async () => {
+    const buffer = await workbookBuffer([
+      {
+        题号: "Q1",
+        题型: "配对",
+        题干: "配对",
+        "小题/空数量": 2,
+        标准答案: "foo-bar|②-a",
+        答案分隔符: "|",
+        判分方式: "配对匹配|配对匹配",
+        知识点: "乘法分配律",
+        难度层级: "基础",
+        是否纳入统计: "是",
+      },
+    ]);
+
+    const result = await importQuestionsFromWorkbook(buffer);
+
+    expect(result.questions).toEqual([]);
+    expect(result.errors).toContainEqual({
+      rowNumber: 2,
+      field: "标准答案",
+      message: "配对题答案必须使用 ①-b 格式",
+    });
+  });
+
   it("reports unsupported difficulty values", async () => {
     const buffer = await workbookBuffer([
       {
@@ -217,6 +243,85 @@ describe("importQuestionsFromWorkbook", () => {
       rowNumber: 2,
       field: "难度层级",
       message: "不支持的难度层级 超纲",
+    });
+  });
+
+  it("reports missing required headers", async () => {
+    const headers = DEFAULT_HEADERS.filter((header) => header !== "题号");
+    const buffer = await workbookBuffer(
+      [
+        {
+          题型: "填空",
+          题干: "1/8 + ____ = 1",
+          "小题/空数量": 1,
+          标准答案: "7/8",
+          判分方式: "数值等价",
+          知识点: "分数凑整",
+          是否纳入统计: "是",
+        },
+      ],
+      headers,
+    );
+
+    const result = await importQuestionsFromWorkbook(buffer);
+
+    expect(result.questions).toEqual([]);
+    expect(result.errors).toContainEqual({
+      rowNumber: 1,
+      field: "题号",
+      message: "缺少必填表头 题号",
+    });
+  });
+
+  it("reports unsupported question types", async () => {
+    const buffer = await workbookBuffer([
+      {
+        题号: "Q1",
+        题型: "问答",
+        题干: "请说明理由",
+        "小题/空数量": 1,
+        标准答案: "略",
+        答案分隔符: "|",
+        判分方式: "文本匹配",
+        知识点: "分数凑整",
+        难度层级: "基础",
+        是否纳入统计: "是",
+      },
+    ]);
+
+    const result = await importQuestionsFromWorkbook(buffer);
+
+    expect(result.questions).toEqual([]);
+    expect(result.errors).toContainEqual({
+      rowNumber: 2,
+      field: "题型",
+      message: "不支持的题型 问答",
+    });
+  });
+
+  it("reports unsupported grading modes", async () => {
+    const buffer = await workbookBuffer([
+      {
+        题号: "Q1",
+        题型: "填空",
+        题干: "1/8 + ____ = 1",
+        "小题/空数量": 1,
+        标准答案: "7/8",
+        答案分隔符: "|",
+        判分方式: "人工判分",
+        知识点: "分数凑整",
+        难度层级: "基础",
+        是否纳入统计: "是",
+      },
+    ]);
+
+    const result = await importQuestionsFromWorkbook(buffer);
+
+    expect(result.questions).toEqual([]);
+    expect(result.errors).toContainEqual({
+      rowNumber: 2,
+      field: "判分方式",
+      message: "不支持的判分方式 人工判分",
     });
   });
 
