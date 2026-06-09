@@ -94,6 +94,21 @@ describe("gradeSubmission", () => {
     expect(graded.allCorrect).toBe(false);
   });
 
+  it("treats circled and digit matching item indexes as equivalent", () => {
+    const graded = gradeSubmission(
+      question({
+        id: "q-3",
+        type: "matching",
+        itemCount: 1,
+        items: [{ index: 0, answer: "1-b", gradingMode: "matching" }],
+      }),
+      ["①-B"],
+    );
+
+    expect(graded.items).toEqual([{ index: 0, correct: true }]);
+    expect(graded.allCorrect).toBe(true);
+  });
+
   it("marks missing answers wrong", () => {
     const graded = gradeSubmission(question(), ["0.5"]);
 

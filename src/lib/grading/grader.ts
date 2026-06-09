@@ -6,6 +6,29 @@ type ItemResult = {
   reason?: "格式无法识别";
 };
 
+const circledNumerals = [
+  "①",
+  "②",
+  "③",
+  "④",
+  "⑤",
+  "⑥",
+  "⑦",
+  "⑧",
+  "⑨",
+  "⑩",
+  "⑪",
+  "⑫",
+  "⑬",
+  "⑭",
+  "⑮",
+  "⑯",
+  "⑰",
+  "⑱",
+  "⑲",
+  "⑳",
+];
+
 export function gradeSubmission(
   question: Question,
   answers: string[],
@@ -54,5 +77,10 @@ function normalizeText(value: string) {
 }
 
 function normalizeMatching(value: string) {
-  return normalizeText(value).toLowerCase();
+  return normalizeText(value)
+    .toLowerCase()
+    .replace(/[①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳]/g, (match) => {
+      const index = circledNumerals.indexOf(match);
+      return index >= 0 ? String(index + 1) : match;
+    });
 }

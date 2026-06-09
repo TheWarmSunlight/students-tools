@@ -30,6 +30,29 @@ const judgementOptions: JudgementOption[] = [
   { value: "错误", label: "错误", testId: "judgement-incorrect" },
 ];
 
+const circledItemLabels = [
+  "①",
+  "②",
+  "③",
+  "④",
+  "⑤",
+  "⑥",
+  "⑦",
+  "⑧",
+  "⑨",
+  "⑩",
+  "⑪",
+  "⑫",
+  "⑬",
+  "⑭",
+  "⑮",
+  "⑯",
+  "⑰",
+  "⑱",
+  "⑲",
+  "⑳",
+];
+
 export function createEmptyAnswers(itemCount: number): string[] {
   const length = Number.isInteger(itemCount) && itemCount > 0 ? itemCount : 0;
   return Array.from({ length }, () => "");
@@ -58,6 +81,24 @@ export function updateAnswerAtIndex(
   }
 
   return nextAnswers;
+}
+
+export function matchingItemLabel(index: number): string {
+  return circledItemLabels[index] ?? String(index + 1);
+}
+
+export function matchingAnswerValue(index: number, optionKey: string): string {
+  const trimmedOptionKey = optionKey.trim();
+  return trimmedOptionKey ? `${matchingItemLabel(index)}-${trimmedOptionKey}` : "";
+}
+
+export function updateMatchingAnswerAtIndex(
+  answers: string[],
+  itemCount: number,
+  index: number,
+  optionKey: string,
+): string[] {
+  return updateAnswerAtIndex(answers, itemCount, index, matchingAnswerValue(index, optionKey));
 }
 
 function selectedClassName(isSelected: boolean) {
@@ -135,7 +176,7 @@ export default function QuestionRenderer({
             >
               <option value="">请选择匹配项</option>
               {question.options.map((option) => (
-                <option key={option.key} value={option.key}>
+                <option key={option.key} value={matchingAnswerValue(index, option.key)}>
                   {option.key}. {option.text}
                 </option>
               ))}

@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import QuestionRenderer, {
   createEmptyAnswers,
+  updateMatchingAnswerAtIndex,
   updateAnswerAtIndex,
   type StudentQuestion,
 } from "@/components/QuestionRenderer";
@@ -71,5 +72,16 @@ describe("student UI components", () => {
 
     expect(withThird).toEqual(["A", "B", "C"]);
     expect(initial).toEqual(["", "", ""]);
+  });
+
+  it("stores matching answers as full ordered matching segments", () => {
+    const initial = createEmptyAnswers(2);
+    const updated = updateMatchingAnswerAtIndex(initial, 2, 0, "A");
+    const twentyFirst = updateMatchingAnswerAtIndex(createEmptyAnswers(21), 21, 20, "C");
+
+    expect(updated).toEqual(["①-A", ""]);
+    expect(updateMatchingAnswerAtIndex(createEmptyAnswers(20), 20, 19, "B")[19]).toBe("⑳-B");
+    expect(twentyFirst[20]).toBe("21-C");
+    expect(updated[0]).not.toBe("A");
   });
 });
