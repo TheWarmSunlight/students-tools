@@ -78,6 +78,39 @@ describe("importQuestionsFromWorkbook", () => {
     ]);
   });
 
+  it("imports optional option E when present", async () => {
+    const buffer = await workbookBuffer(
+      [
+        {
+          题号: "Q1",
+          题型: "配对",
+          题干: "配对",
+          "小题/空数量": 1,
+          选项A: "乘法分配律",
+          选项B: "乘法交换律",
+          选项C: "乘法结合律",
+          选项D: "乘法分配律逆用",
+          选项E: "加法结合律",
+          标准答案: "①-E",
+          答案分隔符: "|",
+          判分方式: "配对匹配",
+          知识点: "运算律识别",
+          难度层级: "提高",
+          是否纳入统计: "是",
+        },
+      ],
+      [...DEFAULT_HEADERS.slice(0, 8), "选项E", ...DEFAULT_HEADERS.slice(8)],
+    );
+
+    const result = await importQuestionsFromWorkbook(buffer);
+
+    expect(result.errors).toEqual([]);
+    expect(result.questions[0].options).toContainEqual({
+      key: "E",
+      text: "加法结合律",
+    });
+  });
+
   it("reports duplicate question numbers", async () => {
     const buffer = await workbookBuffer([
       {

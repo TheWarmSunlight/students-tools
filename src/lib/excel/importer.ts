@@ -51,6 +51,7 @@ const GRADING_MAP: Readonly<Partial<Record<string, GradingMode>>> = {
 const DEFAULT_DELIMITER = "|";
 const KNOWLEDGE_POINT_DELIMITER = "|";
 const DEFAULT_DIFFICULTY: QuestionDifficulty = "基础";
+const OPTION_KEYS = ["A", "B", "C", "D", "E", "F", "G", "H"];
 
 export async function importQuestionsFromWorkbook(
   buffer: Buffer,
@@ -357,7 +358,7 @@ function isBlankRow(row: ExcelJS.Row, headerColumns: Map<string, number>) {
 }
 
 function getOptions(row: ExcelJS.Row, headerColumns: Map<string, number>): QuestionOption[] {
-  return ["A", "B", "C", "D"].flatMap((key) => {
+  return OPTION_KEYS.flatMap((key) => {
     const columnNumber = headerColumns.get(`选项${key}`);
     if (!columnNumber) {
       return [];
