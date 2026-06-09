@@ -148,6 +148,7 @@ export default function StudentPage() {
 
     const orderedAnswers = normalizeAnswers(answers, question.itemCount);
     setFormError("");
+    setSubmitResult(null);
     setIsSubmitting(true);
     setAnswers(orderedAnswers);
 
