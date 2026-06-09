@@ -37,6 +37,7 @@ type ClassroomRow = {
 type QuestionTokenRow = {
   token: string;
   classroom_id: string;
+  question_set_id: string;
   question_id: string;
 };
 
@@ -52,6 +53,7 @@ type StudentRow = {
 type SubmissionRow = {
   id: string;
   classroom_id: string;
+  question_set_id: string;
   question_id: string;
   student_id: string;
   answers_json: string;
@@ -205,6 +207,19 @@ function rowToSubmission(row: SubmissionRow): SubmissionRecord {
   };
 }
 
+function getClassroomQuestionSetId(db: AppDatabase, classroomId: string): string {
+  const classroom = db
+    .prepare<[string], { question_set_id: string }>(
+      "SELECT question_set_id FROM classrooms WHERE id = ?",
+    )
+    .get(classroomId);
+  if (!classroom) {
+    throw new Error(`Classroom not found: ${classroomId}`);
+  }
+
+  return classroom.question_set_id;
+}
+
 export function createRepositories(db: AppDatabase) {
   const questionSets = {
     create(title: string, questions: Question[]) {
@@ -341,9 +356,15 @@ export function createRepositories(db: AppDatabase) {
   const questionTokens = {
     create(classroomId: string, questionId: string) {
       const token = nanoid(TOKEN_SIZE);
-      db.prepare<[string, string, string]>(
-        "INSERT INTO question_tokens (token, classroom_id, question_id) VALUES (?, ?, ?)",
-      ).run(token, classroomId, questionId);
+      const questionSetId = getClassroomQuestionSetId(db, classroomId);
+      db.prepare<[string, string, string, string]>(
+        `INSERT INTO question_tokens (
+          token,
+          classroom_id,
+          question_set_id,
+          question_id
+        ) VALUES (?, ?, ?, ?)`,
+      ).run(token, classroomId, questionSetId, questionId);
       return token;
     },
 
@@ -398,12 +419,14 @@ export function createRepositories(db: AppDatabase) {
   const submissions = {
     save(input: SaveSubmissionInput): SubmissionRecord {
       const submittedAt = input.submittedAt ?? now();
+      const questionSetId = getClassroomQuestionSetId(db, input.classroomId);
       db.prepare<
-        [string, string, string, string, string, string, number, string]
+        [string, string, string, string, string, string, string, number, string]
       >(
         `INSERT INTO submissions (
           id,
           classroom_id,
+          question_set_id,
           question_id,
           student_id,
           answers_json,
@@ -411,7 +434,7 @@ export function createRepositories(db: AppDatabase) {
           all_correct,
           submit_count,
           submitted_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
         ON CONFLICT(classroom_id, question_id, student_id) DO UPDATE SET
           answers_json = excluded.answers_json,
           graded_items_json = excluded.graded_items_json,
@@ -421,6 +444,7 @@ export function createRepositories(db: AppDatabase) {
       ).run(
         nanoid(),
         input.classroomId,
+        questionSetId,
         input.questionId,
         input.studentId,
         JSON.stringify(input.answers),

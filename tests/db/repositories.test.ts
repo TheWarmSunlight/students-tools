@@ -61,6 +61,15 @@ function sampleQuestions(): Question[] {
   ];
 }
 
+function questionWithLocalId(questionNo: string, prompt: string): Question {
+  return {
+    ...sampleQuestions()[0],
+    id: `q-${questionNo}`,
+    questionNo,
+    prompt,
+  };
+}
+
 function setupQuestionSet() {
   const repos = createRepositories(openTestDatabase());
   const questionSetId = repos.questionSets.create("运算律课堂", sampleQuestions());
@@ -99,6 +108,18 @@ describe("repositories", () => {
     const restored = repos.questionSets.listQuestions(questionSetId);
 
     expect(restored).toEqual(sampleQuestions());
+  });
+
+  it("scopes question ids to their question set", () => {
+    const repos = createRepositories(openTestDatabase());
+    const firstQuestion = questionWithLocalId("Q1", "第一套题的 Q1");
+    const secondQuestion = questionWithLocalId("Q1", "第二套题的 Q1");
+
+    const firstId = repos.questionSets.create("第一套题", [firstQuestion]);
+    const secondId = repos.questionSets.create("第二套题", [secondQuestion]);
+
+    expect(repos.questionSets.listQuestions(firstId)).toEqual([firstQuestion]);
+    expect(repos.questionSets.listQuestions(secondId)).toEqual([secondQuestion]);
   });
 
   it("creates classrooms with teacher tokens and maps status timestamps to camelCase", () => {
@@ -152,6 +173,48 @@ describe("repositories", () => {
       classroomId: classroom.id,
       questionId: "q-choice",
     });
+  });
+
+  it("enforces the classroom question set for local question ids in tokens and submissions", () => {
+    const repos = createRepositories(openTestDatabase());
+    const firstQuestion = questionWithLocalId("Q1", "第一套题的 Q1");
+    const secondQuestion = questionWithLocalId("Q2", "第二套题的 Q2");
+    const firstQuestionSetId = repos.questionSets.create("第一套题", [firstQuestion]);
+    repos.questionSets.create("第二套题", [secondQuestion]);
+    const classroom = repos.classrooms.create(firstQuestionSetId, 40);
+    const studentId = repos.students.upsert(classroom.id, { seatNo: "01", name: "小明" });
+
+    const token = repos.questionTokens.create(classroom.id, "q-Q1");
+    const submission = repos.submissions.save({
+      classroomId: classroom.id,
+      questionId: "q-Q1",
+      studentId,
+      answers: ["B"],
+      gradedItems: [{ index: 0, correct: true }],
+      allCorrect: true,
+    });
+
+    expect(repos.questionTokens.get(token)).toEqual({
+      token,
+      classroomId: classroom.id,
+      questionId: "q-Q1",
+    });
+    expect(submission).toMatchObject({
+      classroomId: classroom.id,
+      questionId: "q-Q1",
+      studentId,
+    });
+    expect(() => repos.questionTokens.create(classroom.id, "q-Q2")).toThrow();
+    expect(() =>
+      repos.submissions.save({
+        classroomId: classroom.id,
+        questionId: "q-Q2",
+        studentId,
+        answers: ["A"],
+        gradedItems: [{ index: 0, correct: false }],
+        allCorrect: false,
+      }),
+    ).toThrow();
   });
 
   it("upserts students by classroom and seat number and lists them by seat number", () => {
