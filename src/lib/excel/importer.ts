@@ -87,6 +87,7 @@ export async function importQuestionsFromWorkbook(
   }
 
   const questions: Question[] = [];
+  const seenQuestionNos = new Set<string>();
   for (let rowNumber = 2; rowNumber <= worksheet.rowCount; rowNumber += 1) {
     const row = worksheet.getRow(rowNumber);
     if (isBlankRow(row, headerColumns)) {
@@ -102,6 +103,10 @@ export async function importQuestionsFromWorkbook(
     const questionNo = getField("题号");
     if (!questionNo) {
       rowErrors.push({ rowNumber, field: "题号", message: "题号不能为空" });
+    } else if (seenQuestionNos.has(questionNo)) {
+      rowErrors.push({ rowNumber, field: "题号", message: "题号不能重复" });
+    } else {
+      seenQuestionNos.add(questionNo);
     }
 
     const typeRaw = getField("题型");
@@ -151,11 +156,11 @@ export async function importQuestionsFromWorkbook(
     }
 
     const gradingLabels = splitBy(gradingRaw, delimiter);
-    if (gradingRaw && gradingLabels.length !== 1 && gradingLabels.length !== answers.length) {
+    if (gradingRaw && gradingLabels.length !== answers.length) {
       rowErrors.push({
         rowNumber,
         field: "判分方式",
-        message: `判分方式数量必须为 1 或等于标准答案数量 ${answers.length}`,
+        message: `判分方式数量必须等于标准答案数量 ${answers.length}`,
       });
     }
 
@@ -269,16 +274,25 @@ export async function importQuestionsFromWorkbook(
       }
     }
 
-    if (
-      type === "matching" &&
-      hasSupportedGradingLabels(gradingLabels, gradingModes) &&
-      !gradingModes.every((mode) => mode === "matching")
-    ) {
-      rowErrors.push({
-        rowNumber,
-        field: "判分方式",
-        message: "配对题判分方式必须为 配对匹配",
-      });
+    if (type === "matching") {
+      if (answers.length > 0 && !answers.every(isMatchingAnswerSegment)) {
+        rowErrors.push({
+          rowNumber,
+          field: "标准答案",
+          message: "配对题答案必须使用 ①-b 格式",
+        });
+      }
+
+      if (
+        hasSupportedGradingLabels(gradingLabels, gradingModes) &&
+        !gradingModes.every((mode) => mode === "matching")
+      ) {
+        rowErrors.push({
+          rowNumber,
+          field: "判分方式",
+          message: "配对题判分方式必须为 配对匹配",
+        });
+      }
     }
 
     if (
@@ -301,10 +315,7 @@ export async function importQuestionsFromWorkbook(
     const items = answers.map((answer, index) => ({
       index,
       answer,
-      gradingMode:
-        gradingModes.length === 1
-          ? gradingModes[0]
-          : gradingModes[index],
+      gradingMode: gradingModes[index],
     }));
 
     questions.push({
@@ -362,6 +373,11 @@ function splitBy(raw: string, delimiter: string) {
     .split(delimiter)
     .map((value) => value.trim())
     .filter(Boolean);
+}
+
+function isMatchingAnswerSegment(answer: string) {
+  const parts = answer.split("-");
+  return parts.length === 2 && parts.every((part) => part.trim().length > 0);
 }
 
 function hasSupportedGradingLabels(labels: string[], modes: GradingMode[]) {

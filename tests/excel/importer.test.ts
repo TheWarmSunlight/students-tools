@@ -56,7 +56,7 @@ describe("importQuestionsFromWorkbook", () => {
         "小题/空数量": 2,
         标准答案: "①-b|②-a",
         答案分隔符: "|",
-        判分方式: "配对匹配",
+        判分方式: "配对匹配|配对匹配",
         知识点: "乘法分配律",
         难度层级: "基础",
         是否纳入统计: "是",
@@ -76,6 +76,44 @@ describe("importQuestionsFromWorkbook", () => {
       { index: 0, answer: "①-b", gradingMode: "matching" },
       { index: 1, answer: "②-a", gradingMode: "matching" },
     ]);
+  });
+
+  it("reports duplicate question numbers", async () => {
+    const buffer = await workbookBuffer([
+      {
+        题号: "Q1",
+        题型: "填空",
+        题干: "1/8 + ____ = 1",
+        "小题/空数量": 1,
+        标准答案: "7/8",
+        答案分隔符: "|",
+        判分方式: "数值等价",
+        知识点: "分数凑整",
+        难度层级: "基础",
+        是否纳入统计: "是",
+      },
+      {
+        题号: "Q1",
+        题型: "填空",
+        题干: "1/4 + ____ = 1",
+        "小题/空数量": 1,
+        标准答案: "3/4",
+        答案分隔符: "|",
+        判分方式: "数值等价",
+        知识点: "分数凑整",
+        难度层级: "基础",
+        是否纳入统计: "是",
+      },
+    ]);
+
+    const result = await importQuestionsFromWorkbook(buffer);
+
+    expect(result.questions).toEqual([]);
+    expect(result.errors).toContainEqual({
+      rowNumber: 3,
+      field: "题号",
+      message: "题号不能重复",
+    });
   });
 
   it("reports answer and grading count mismatch", async () => {
@@ -101,6 +139,58 @@ describe("importQuestionsFromWorkbook", () => {
       rowNumber: 2,
       field: "标准答案",
       message: "标准答案数量必须等于小题/空数量 2",
+    });
+  });
+
+  it("reports blank questions with too few grading modes", async () => {
+    const buffer = await workbookBuffer([
+      {
+        题号: "Q1",
+        题型: "填空",
+        题干: "1/8 + ____ + ____ = 2",
+        "小题/空数量": 2,
+        标准答案: "7/8|1",
+        答案分隔符: "|",
+        判分方式: "数值等价",
+        知识点: "分数凑整",
+        难度层级: "基础",
+        是否纳入统计: "是",
+      },
+    ]);
+
+    const result = await importQuestionsFromWorkbook(buffer);
+
+    expect(result.questions).toEqual([]);
+    expect(result.errors).toContainEqual({
+      rowNumber: 2,
+      field: "判分方式",
+      message: "判分方式数量必须等于标准答案数量 2",
+    });
+  });
+
+  it("reports malformed matching answers", async () => {
+    const buffer = await workbookBuffer([
+      {
+        题号: "Q1",
+        题型: "配对",
+        题干: "配对",
+        "小题/空数量": 2,
+        标准答案: "foo|bar",
+        答案分隔符: "|",
+        判分方式: "配对匹配|配对匹配",
+        知识点: "乘法分配律",
+        难度层级: "基础",
+        是否纳入统计: "是",
+      },
+    ]);
+
+    const result = await importQuestionsFromWorkbook(buffer);
+
+    expect(result.questions).toEqual([]);
+    expect(result.errors).toContainEqual({
+      rowNumber: 2,
+      field: "标准答案",
+      message: "配对题答案必须使用 ①-b 格式",
     });
   });
 
@@ -341,7 +431,7 @@ describe("importQuestionsFromWorkbook", () => {
         "小题/空数量": 2,
         标准答案: "7/8;1",
         答案分隔符: ";",
-        判分方式: "数值等价",
+        判分方式: "数值等价;数值等价",
         知识点: "加法交换律|分数凑整",
         难度层级: "基础",
         是否纳入统计: "是",
