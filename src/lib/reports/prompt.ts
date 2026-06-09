@@ -1,3 +1,5 @@
+import type { ClassroomAnalytics } from "@/lib/stats/analytics";
+
 export type ReportMessage = { role: "system" | "user" | "assistant"; content: string };
 
 type SafeItemStats = {
@@ -113,7 +115,7 @@ function projectLayer(value: unknown): SafeLayerSummary {
   };
 }
 
-function projectSafeSummary(summary: unknown): SafeReportSummary {
+function projectSafeSummary(summary: ClassroomAnalytics): SafeReportSummary {
   const source = recordFrom(summary);
 
   return {
@@ -137,7 +139,7 @@ const SYSTEM_PROMPT = [
   "如果提交人数较少、样本不足或统计分母为 0，必须提示样本不足并降低结论确定性。",
 ].join("\n");
 
-export function buildReportMessages(summary: unknown): ReportMessage[] {
+export function buildReportMessages(summary: ClassroomAnalytics): ReportMessage[] {
   const safeSummary = projectSafeSummary(summary);
 
   return [

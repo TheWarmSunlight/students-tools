@@ -1,3 +1,5 @@
+import "server-only";
+
 export type ZhipuMessage = { role: "system" | "user" | "assistant"; content: string };
 
 const DEFAULT_ZHIPU_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions";

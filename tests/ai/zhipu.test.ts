@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { generateZhipuReport, readZhipuConfigFromEnv } from "@/lib/ai/zhipu";
 import { buildReportMessages } from "@/lib/reports/prompt";
+import type { ClassroomAnalytics } from "@/lib/stats/analytics";
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -28,45 +31,57 @@ function restoreZhipuEnv(saved: Record<string, string | undefined>): void {
 }
 
 describe("buildReportMessages", () => {
+  it("keeps the zhipu API client server-only", () => {
+    const source = readFileSync(join(process.cwd(), "src/lib/ai/zhipu.ts"), "utf8");
+
+    expect(source).toMatch(/^import "server-only";/);
+  });
+
   it("projects classroom analytics into aggregate-only prompt messages", () => {
-    const messages = buildReportMessages({
+    const rawQuestion = {
+      questionId: "q-1",
+      questionNo: "第1题",
+      itemAccuracy: 3 / 4,
+      errorRate: 1 / 4,
+      allCorrectRate: 1 / 2,
+      submittedCount: 1,
+      correctItems: 3,
+      totalItems: 4,
+      itemStats: [{ index: 0, correct: 1, total: 1, accuracy: 1, errorRate: 0 }],
+      prompt: "泄露题干",
+      options: [{ key: "A", text: "泄露选项" }],
+      items: [{ index: 0, answer: "真实答案", gradingMode: "数值等价" }],
+      explanation: "泄露解析",
+      standardAnswer: "标准答案",
+    };
+    const rawStudent: ClassroomAnalytics["students"][number] & { studentId: string } = {
+      id: "s-1",
+      studentId: "s-1",
+      seatNo: "01",
+      name: "小明",
+      accuracy: 1,
+      correctItems: 4,
+      totalItems: 4,
+      layerCode: "A",
+    };
+    const analytics: ClassroomAnalytics & {
+      questions: typeof rawQuestion[];
+      students: typeof rawStudent[];
+    } = {
       expectedCount: 30,
       studentCount: 2,
       submittedStudentCount: 1,
       submitRate: 1 / 2,
       averageAccuracy: 3 / 4,
-      questions: [
-        {
-          questionId: "q-1",
-          questionNo: "第1题",
-          itemAccuracy: 3 / 4,
-          errorRate: 1 / 4,
-          allCorrectRate: 1 / 2,
-          submittedCount: 1,
-          correctItems: 3,
-          totalItems: 4,
-          itemStats: [{ index: 0, correct: 1, total: 1, accuracy: 1, errorRate: 0 }],
-          prompt: "泄露题干",
-          standardAnswer: "标准答案",
-        },
-      ],
+      questions: [rawQuestion],
       knowledgePoints: [
         { name: "分数加法", accuracy: 3 / 4, correctItems: 3, totalItems: 4 },
       ],
       layers: [{ code: "A", name: "优秀拓展层", count: 1, percentage: 1 / 2 }],
-      students: [
-        {
-          id: "s-1",
-          studentId: "s-1",
-          seatNo: "01",
-          name: "小明",
-          accuracy: 1,
-          correctItems: 4,
-          totalItems: 4,
-          layerCode: "A",
-        },
-      ],
-    });
+      students: [rawStudent],
+    };
+
+    const messages = buildReportMessages(analytics);
 
     expect(messages.map((message) => message.role)).toEqual(["system", "user"]);
     expect(messages[0].content).toContain("只基于汇总统计");
@@ -94,6 +109,9 @@ describe("buildReportMessages", () => {
     expect(serialized).not.toContain("小明");
     expect(serialized).not.toContain("s-1");
     expect(serialized).not.toContain("泄露题干");
+    expect(serialized).not.toContain("泄露选项");
+    expect(serialized).not.toContain("真实答案");
+    expect(serialized).not.toContain("泄露解析");
     expect(serialized).not.toContain("标准答案");
   });
 });
