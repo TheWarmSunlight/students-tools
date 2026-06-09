@@ -64,6 +64,21 @@ describe("student UI components", () => {
     expect(matchingHtml).toContain('data-testid="matching-select-0"');
   });
 
+  it("renders judgement buttons for correct and incorrect answers", () => {
+    const html = renderToStaticMarkup(
+      <QuestionRenderer
+        question={question({ type: "judgement" })}
+        answers={[""]}
+        onAnswersChange={() => undefined}
+      />,
+    );
+
+    expect(html).toContain('data-testid="judgement-correct"');
+    expect(html).toContain('data-testid="judgement-incorrect"');
+    expect(html).toContain("正确");
+    expect(html).toContain("错误");
+  });
+
   it("keeps answers arrays in item order when an item changes", () => {
     const initial = createEmptyAnswers(3);
     const withSecond = updateAnswerAtIndex(initial, 3, 1, "B");

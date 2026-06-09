@@ -3,35 +3,27 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import QuestionRenderer, {
-  createEmptyAnswers,
   normalizeAnswers,
   type StudentQuestion,
 } from "@/components/QuestionRenderer";
+import {
+  createLoadedQuestionState,
+  emptyStudentIdentity,
+  getBrowserStudentStorage,
+  loadStudentIdentity,
+  readError,
+  readJson,
+  saveStudentIdentity,
+  submitStudentAnswers,
+  type StudentIdentity,
+  type SubmitResult,
+} from "@/components/studentPageModel";
 
-type StudentIdentity = {
-  name: string;
-  seatNo: string;
-};
-
-type SubmitResult = {
-  questionId: string;
-  allCorrect: boolean;
-  gradedItems: Array<{ index: number; correct: boolean; reason?: string }>;
-  submitCount: number;
-  submittedAt: string;
-};
-
-const STUDENT_IDENTITY_KEY = "studentIdentity";
-const emptyIdentity: StudentIdentity = { name: "", seatNo: "" };
 const questionTypes = ["choice", "judgement", "blank", "matching"];
 const classroomStatuses = ["draft", "active", "ended"];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
-function readError(value: unknown, fallback: string) {
-  return isRecord(value) && typeof value.error === "string" ? value.error : fallback;
 }
 
 function isStringOption(value: unknown): value is { key: string; text: string } {
@@ -57,40 +49,6 @@ function isStudentQuestion(value: unknown): value is StudentQuestion {
   );
 }
 
-function loadStudentIdentity(): StudentIdentity {
-  if (typeof window === "undefined") {
-    return emptyIdentity;
-  }
-
-  const raw = window.localStorage.getItem(STUDENT_IDENTITY_KEY);
-  if (!raw) {
-    return emptyIdentity;
-  }
-
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (
-      isRecord(parsed) &&
-      typeof parsed.name === "string" &&
-      typeof parsed.seatNo === "string"
-    ) {
-      return { name: parsed.name, seatNo: parsed.seatNo };
-    }
-  } catch {
-    return emptyIdentity;
-  }
-
-  return emptyIdentity;
-}
-
-function saveStudentIdentity(identity: StudentIdentity) {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  window.localStorage.setItem(STUDENT_IDENTITY_KEY, JSON.stringify(identity));
-}
-
 function statusText(status: StudentQuestion["status"]) {
   if (status === "active") {
     return "课堂进行中";
@@ -103,15 +61,11 @@ function statusText(status: StudentQuestion["status"]) {
   return "课堂未开始";
 }
 
-async function readJson(response: Response): Promise<unknown> {
-  return response.json().catch(() => null);
-}
-
 export default function StudentPage() {
   const params = useParams<{ token?: string | string[] }>();
   const tokenParam = params?.token;
   const token = Array.isArray(tokenParam) ? tokenParam[0] : (tokenParam ?? "");
-  const [identity, setIdentity] = useState<StudentIdentity>(emptyIdentity);
+  const [identity, setIdentity] = useState<StudentIdentity>(emptyStudentIdentity);
   const [question, setQuestion] = useState<StudentQuestion | null>(null);
   const [answers, setAnswers] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -121,7 +75,7 @@ export default function StudentPage() {
   const [submitResult, setSubmitResult] = useState<SubmitResult | null>(null);
 
   useEffect(() => {
-    setIdentity(loadStudentIdentity());
+    setIdentity(loadStudentIdentity(getBrowserStudentStorage()));
   }, []);
 
   useEffect(() => {
@@ -152,8 +106,10 @@ export default function StudentPage() {
         }
 
         if (isCurrent) {
-          setQuestion(body);
-          setAnswers(createEmptyAnswers(body.itemCount));
+          const loadedState = createLoadedQuestionState(body);
+          setQuestion(loadedState.question);
+          setAnswers(loadedState.answers);
+          setSubmitResult(loadedState.submitResult);
         }
       } catch (caught) {
         if (isCurrent) {
@@ -194,26 +150,22 @@ export default function StudentPage() {
     setFormError("");
     setIsSubmitting(true);
     setAnswers(orderedAnswers);
-    saveStudentIdentity(trimmedIdentity);
 
     try {
-      const response = await fetch(`/api/student/questions/${encodeURIComponent(token)}/submit`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: trimmedIdentity.name,
-          seatNo: trimmedIdentity.seatNo,
-          answers: orderedAnswers,
-        }),
+      saveStudentIdentity(getBrowserStudentStorage(), trimmedIdentity);
+      const result = await submitStudentAnswers({
+        token,
+        identity: trimmedIdentity,
+        answers: orderedAnswers,
       });
-      const body = await readJson(response);
 
-      if (!response.ok) {
-        throw new Error(readError(body, "提交失败，请稍后重试"));
+      if (result.status === "error") {
+        setFormError(result.error);
+        return;
       }
 
       setIdentity(trimmedIdentity);
-      setSubmitResult(body as SubmitResult);
+      setSubmitResult(result.submission);
     } catch (caught) {
       setFormError(caught instanceof Error ? caught.message : "提交失败，请稍后重试");
     } finally {
