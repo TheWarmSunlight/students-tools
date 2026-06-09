@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS classrooms (
   created_at TEXT NOT NULL,
   started_at TEXT,
   ended_at TEXT,
+  UNIQUE(id, question_set_id),
   FOREIGN KEY (question_set_id) REFERENCES question_sets(id)
 );
 
@@ -39,7 +40,7 @@ CREATE TABLE IF NOT EXISTS question_tokens (
   classroom_id TEXT NOT NULL,
   question_set_id TEXT NOT NULL,
   question_id TEXT NOT NULL,
-  FOREIGN KEY (classroom_id) REFERENCES classrooms(id) ON DELETE CASCADE,
+  FOREIGN KEY (classroom_id, question_set_id) REFERENCES classrooms(id, question_set_id) ON DELETE CASCADE,
   FOREIGN KEY (question_set_id, question_id) REFERENCES questions(question_set_id, id) ON DELETE CASCADE
 );
 
@@ -51,6 +52,7 @@ CREATE TABLE IF NOT EXISTS students (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   UNIQUE(classroom_id, seat_no),
+  UNIQUE(classroom_id, id),
   FOREIGN KEY (classroom_id) REFERENCES classrooms(id) ON DELETE CASCADE
 );
 
@@ -66,9 +68,9 @@ CREATE TABLE IF NOT EXISTS submissions (
   submit_count INTEGER NOT NULL,
   submitted_at TEXT NOT NULL,
   UNIQUE(classroom_id, question_id, student_id),
-  FOREIGN KEY (classroom_id) REFERENCES classrooms(id) ON DELETE CASCADE,
+  FOREIGN KEY (classroom_id, question_set_id) REFERENCES classrooms(id, question_set_id) ON DELETE CASCADE,
   FOREIGN KEY (question_set_id, question_id) REFERENCES questions(question_set_id, id) ON DELETE CASCADE,
-  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+  FOREIGN KEY (classroom_id, student_id) REFERENCES students(classroom_id, id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS reports (

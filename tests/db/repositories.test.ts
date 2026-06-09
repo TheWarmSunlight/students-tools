@@ -217,6 +217,108 @@ describe("repositories", () => {
     ).toThrow();
   });
 
+  it("rejects question tokens whose question set does not match the classroom", () => {
+    const database = openTestDatabase();
+    const repos = createRepositories(database);
+    const firstQuestion = questionWithLocalId("Q1", "第一套题的 Q1");
+    const secondQuestion = questionWithLocalId("Q2", "第二套题的 Q2");
+    const firstQuestionSetId = repos.questionSets.create("第一套题", [firstQuestion]);
+    const secondQuestionSetId = repos.questionSets.create("第二套题", [secondQuestion]);
+    const firstClassroom = repos.classrooms.create(firstQuestionSetId, 40);
+
+    expect(() =>
+      database
+        .prepare(
+          `INSERT INTO question_tokens (token, classroom_id, question_set_id, question_id)
+           VALUES (?, ?, ?, ?)`,
+        )
+        .run("cross-set-token", firstClassroom.id, secondQuestionSetId, secondQuestion.id),
+    ).toThrow();
+  });
+
+  it("rejects submissions whose question set does not match the classroom", () => {
+    const database = openTestDatabase();
+    const repos = createRepositories(database);
+    const firstQuestion = questionWithLocalId("Q1", "第一套题的 Q1");
+    const secondQuestion = questionWithLocalId("Q2", "第二套题的 Q2");
+    const firstQuestionSetId = repos.questionSets.create("第一套题", [firstQuestion]);
+    const secondQuestionSetId = repos.questionSets.create("第二套题", [secondQuestion]);
+    const firstClassroom = repos.classrooms.create(firstQuestionSetId, 40);
+    const firstStudentId = repos.students.upsert(firstClassroom.id, { seatNo: "01", name: "小明" });
+
+    expect(() =>
+      database
+        .prepare(
+          `INSERT INTO submissions (
+            id,
+            classroom_id,
+            question_set_id,
+            question_id,
+            student_id,
+            answers_json,
+            graded_items_json,
+            all_correct,
+            submit_count,
+            submitted_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run(
+          "cross-set-submission",
+          firstClassroom.id,
+          secondQuestionSetId,
+          secondQuestion.id,
+          firstStudentId,
+          "[]",
+          "[]",
+          0,
+          1,
+          new Date().toISOString(),
+        ),
+    ).toThrow();
+  });
+
+  it("rejects submissions whose student does not belong to the classroom", () => {
+    const database = openTestDatabase();
+    const repos = createRepositories(database);
+    const questionSetId = repos.questionSets.create("运算律课堂", sampleQuestions());
+    const firstClassroom = repos.classrooms.create(questionSetId, 40);
+    const secondClassroom = repos.classrooms.create(questionSetId, 40);
+    const secondStudentId = repos.students.upsert(secondClassroom.id, {
+      seatNo: "01",
+      name: "小明",
+    });
+
+    expect(() =>
+      database
+        .prepare(
+          `INSERT INTO submissions (
+            id,
+            classroom_id,
+            question_set_id,
+            question_id,
+            student_id,
+            answers_json,
+            graded_items_json,
+            all_correct,
+            submit_count,
+            submitted_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run(
+          "cross-classroom-submission",
+          firstClassroom.id,
+          questionSetId,
+          "q-choice",
+          secondStudentId,
+          "[]",
+          "[]",
+          0,
+          1,
+          new Date().toISOString(),
+        ),
+    ).toThrow();
+  });
+
   it("upserts students by classroom and seat number and lists them by seat number", () => {
     const { repos, questionSetId } = setupQuestionSet();
     const classroom = repos.classrooms.create(questionSetId, 40);
