@@ -5,7 +5,7 @@ import { gradeSubmission } from "@/lib/grading/grader";
 export const runtime = "nodejs";
 
 type RouteContext = {
-  params: Promise<{ token: string }> | { token: string };
+  params: Promise<{ token: string }>;
 };
 
 function recordFrom(value: unknown): Record<string, unknown> | null {

@@ -4,7 +4,7 @@ import { createRepositories } from "@/lib/db/repositories";
 export const runtime = "nodejs";
 
 type RouteContext = {
-  params: Promise<{ token: string }> | { token: string };
+  params: Promise<{ token: string }>;
 };
 
 export async function GET(_request: Request, context: RouteContext) {

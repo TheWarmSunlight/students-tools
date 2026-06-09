@@ -6,7 +6,7 @@ import { authorizeClassroom, readTeacherToken, sanitizeClassroom } from "../life
 export const runtime = "nodejs";
 
 type RouteContext = {
-  params: Promise<{ classroomId: string }> | { classroomId: string };
+  params: Promise<{ classroomId: string }>;
 };
 
 export async function POST(request: Request, context: RouteContext) {

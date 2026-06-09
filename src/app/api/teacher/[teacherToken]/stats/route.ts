@@ -5,7 +5,7 @@ import { buildTeacherAnalytics } from "../analytics";
 export const runtime = "nodejs";
 
 type RouteContext = {
-  params: Promise<{ teacherToken: string }> | { teacherToken: string };
+  params: Promise<{ teacherToken: string }>;
 };
 
 export async function GET(_request: Request, context: RouteContext) {
