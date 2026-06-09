@@ -331,4 +331,238 @@ describe("importQuestionsFromWorkbook", () => {
       message: "是否纳入统计必须为 是 或 否",
     });
   });
+
+  it("splits knowledge points by pipe even when answers use another delimiter", async () => {
+    const buffer = await workbookBuffer([
+      {
+        题号: "Q1",
+        题型: "填空",
+        题干: "1/8 + ____ + ____ = 2",
+        "小题/空数量": 2,
+        标准答案: "7/8;1",
+        答案分隔符: ";",
+        判分方式: "数值等价",
+        知识点: "加法交换律|分数凑整",
+        难度层级: "基础",
+        是否纳入统计: "是",
+      },
+    ]);
+
+    const result = await importQuestionsFromWorkbook(buffer);
+
+    expect(result.errors).toEqual([]);
+    expect(result.questions[0].knowledgePoints).toEqual(["加法交换律", "分数凑整"]);
+  });
+
+  it("reports blank standard answers", async () => {
+    const buffer = await workbookBuffer([
+      {
+        题号: "Q1",
+        题型: "填空",
+        题干: "1/8 + ____ = 1",
+        "小题/空数量": 1,
+        标准答案: "",
+        答案分隔符: "|",
+        判分方式: "数值等价",
+        知识点: "分数凑整",
+        难度层级: "基础",
+        是否纳入统计: "是",
+      },
+    ]);
+
+    const result = await importQuestionsFromWorkbook(buffer);
+
+    expect(result.questions).toEqual([]);
+    expect(result.errors).toContainEqual({
+      rowNumber: 2,
+      field: "标准答案",
+      message: "标准答案不能为空",
+    });
+  });
+
+  it("reports blank grading modes", async () => {
+    const buffer = await workbookBuffer([
+      {
+        题号: "Q1",
+        题型: "填空",
+        题干: "1/8 + ____ = 1",
+        "小题/空数量": 1,
+        标准答案: "7/8",
+        答案分隔符: "|",
+        判分方式: "",
+        知识点: "分数凑整",
+        难度层级: "基础",
+        是否纳入统计: "是",
+      },
+    ]);
+
+    const result = await importQuestionsFromWorkbook(buffer);
+
+    expect(result.questions).toEqual([]);
+    expect(result.errors).toContainEqual({
+      rowNumber: 2,
+      field: "判分方式",
+      message: "判分方式不能为空",
+    });
+  });
+
+  it("reports choice questions with multiple items", async () => {
+    const buffer = await workbookBuffer([
+      {
+        题号: "Q1",
+        题型: "选择",
+        题干: "选择正确答案",
+        "小题/空数量": 2,
+        选项A: "1/2",
+        选项B: "3/4",
+        标准答案: "A|B",
+        答案分隔符: "|",
+        判分方式: "文本匹配",
+        知识点: "分数比较",
+        难度层级: "基础",
+        是否纳入统计: "是",
+      },
+    ]);
+
+    const result = await importQuestionsFromWorkbook(buffer);
+
+    expect(result.questions).toEqual([]);
+    expect(result.errors).toContainEqual({
+      rowNumber: 2,
+      field: "小题/空数量",
+      message: "选择题小题/空数量必须为 1",
+    });
+  });
+
+  it("reports choice questions with numeric grading", async () => {
+    const buffer = await workbookBuffer([
+      {
+        题号: "Q1",
+        题型: "选择",
+        题干: "选择正确答案",
+        "小题/空数量": 1,
+        选项A: "1/2",
+        选项B: "3/4",
+        标准答案: "A",
+        答案分隔符: "|",
+        判分方式: "数值等价",
+        知识点: "分数比较",
+        难度层级: "基础",
+        是否纳入统计: "是",
+      },
+    ]);
+
+    const result = await importQuestionsFromWorkbook(buffer);
+
+    expect(result.questions).toEqual([]);
+    expect(result.errors).toContainEqual({
+      rowNumber: 2,
+      field: "判分方式",
+      message: "选择题判分方式必须为 文本匹配",
+    });
+  });
+
+  it("reports judgement questions with multiple items", async () => {
+    const buffer = await workbookBuffer([
+      {
+        题号: "Q1",
+        题型: "判断",
+        题干: "判断下列说法",
+        "小题/空数量": 2,
+        标准答案: "正确|错误",
+        答案分隔符: "|",
+        判分方式: "文本匹配",
+        知识点: "分数比较",
+        难度层级: "基础",
+        是否纳入统计: "是",
+      },
+    ]);
+
+    const result = await importQuestionsFromWorkbook(buffer);
+
+    expect(result.questions).toEqual([]);
+    expect(result.errors).toContainEqual({
+      rowNumber: 2,
+      field: "小题/空数量",
+      message: "判断题小题/空数量必须为 1",
+    });
+  });
+
+  it("reports judgement questions with numeric grading", async () => {
+    const buffer = await workbookBuffer([
+      {
+        题号: "Q1",
+        题型: "判断",
+        题干: "1/2 小于 3/4",
+        "小题/空数量": 1,
+        标准答案: "正确",
+        答案分隔符: "|",
+        判分方式: "数值等价",
+        知识点: "分数比较",
+        难度层级: "基础",
+        是否纳入统计: "是",
+      },
+    ]);
+
+    const result = await importQuestionsFromWorkbook(buffer);
+
+    expect(result.questions).toEqual([]);
+    expect(result.errors).toContainEqual({
+      rowNumber: 2,
+      field: "判分方式",
+      message: "判断题判分方式必须为 文本匹配",
+    });
+  });
+
+  it("reports matching questions with text grading", async () => {
+    const buffer = await workbookBuffer([
+      {
+        题号: "Q1",
+        题型: "配对",
+        题干: "配对",
+        "小题/空数量": 2,
+        标准答案: "①-b|②-a",
+        答案分隔符: "|",
+        判分方式: "文本匹配",
+        知识点: "乘法分配律",
+        难度层级: "基础",
+        是否纳入统计: "是",
+      },
+    ]);
+
+    const result = await importQuestionsFromWorkbook(buffer);
+
+    expect(result.questions).toEqual([]);
+    expect(result.errors).toContainEqual({
+      rowNumber: 2,
+      field: "判分方式",
+      message: "配对题判分方式必须为 配对匹配",
+    });
+  });
+
+  it("reports blank questions with matching grading", async () => {
+    const buffer = await workbookBuffer([
+      {
+        题号: "Q1",
+        题型: "填空",
+        题干: "1/8 + ____ = 1",
+        "小题/空数量": 1,
+        标准答案: "7/8",
+        答案分隔符: "|",
+        判分方式: "配对匹配",
+        知识点: "分数凑整",
+        难度层级: "基础",
+        是否纳入统计: "是",
+      },
+    ]);
+
+    const result = await importQuestionsFromWorkbook(buffer);
+
+    expect(result.questions).toEqual([]);
+    expect(result.errors).toContainEqual({
+      rowNumber: 2,
+      field: "判分方式",
+      message: "填空题判分方式不能为 配对匹配",
+    });
+  });
 });

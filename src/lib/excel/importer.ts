@@ -49,6 +49,7 @@ const GRADING_MAP: Readonly<Partial<Record<string, GradingMode>>> = {
 };
 
 const DEFAULT_DELIMITER = "|";
+const KNOWLEDGE_POINT_DELIMITER = "|";
 const DEFAULT_DIFFICULTY: QuestionDifficulty = "基础";
 
 export async function importQuestionsFromWorkbook(
@@ -120,7 +121,8 @@ export async function importQuestionsFromWorkbook(
 
     const itemCountRaw = getField("小题/空数量");
     const itemCount = Number(itemCountRaw);
-    if (!Number.isInteger(itemCount) || itemCount <= 0) {
+    const hasPositiveIntegerItemCount = Number.isInteger(itemCount) && itemCount > 0;
+    if (!hasPositiveIntegerItemCount) {
       rowErrors.push({
         rowNumber,
         field: "小题/空数量",
@@ -129,8 +131,13 @@ export async function importQuestionsFromWorkbook(
     }
 
     const delimiter = getField("答案分隔符") || DEFAULT_DELIMITER;
-    const answers = splitBy(getField("标准答案"), delimiter);
-    if (Number.isInteger(itemCount) && itemCount > 0 && answers.length !== itemCount) {
+    const answerRaw = getField("标准答案");
+    if (!answerRaw) {
+      rowErrors.push({ rowNumber, field: "标准答案", message: "标准答案不能为空" });
+    }
+
+    const answers = splitBy(answerRaw, delimiter);
+    if (answerRaw && hasPositiveIntegerItemCount && answers.length !== itemCount) {
       rowErrors.push({
         rowNumber,
         field: "标准答案",
@@ -138,8 +145,13 @@ export async function importQuestionsFromWorkbook(
       });
     }
 
-    const gradingLabels = splitBy(getField("判分方式"), delimiter);
-    if (gradingLabels.length !== 1 && gradingLabels.length !== answers.length) {
+    const gradingRaw = getField("判分方式");
+    if (!gradingRaw) {
+      rowErrors.push({ rowNumber, field: "判分方式", message: "判分方式不能为空" });
+    }
+
+    const gradingLabels = splitBy(gradingRaw, delimiter);
+    if (gradingRaw && gradingLabels.length !== 1 && gradingLabels.length !== answers.length) {
       rowErrors.push({
         rowNumber,
         field: "判分方式",
@@ -161,7 +173,7 @@ export async function importQuestionsFromWorkbook(
       }
     }
 
-    const knowledgePoints = splitBy(getField("知识点"), delimiter);
+    const knowledgePoints = splitBy(getField("知识点"), KNOWLEDGE_POINT_DELIMITER);
     if (knowledgePoints.length === 0) {
       rowErrors.push({ rowNumber, field: "知识点", message: "知识点不能为空" });
     }
@@ -191,6 +203,14 @@ export async function importQuestionsFromWorkbook(
 
     const options = getOptions(row, headerColumns);
     if (type === "choice") {
+      if (hasPositiveIntegerItemCount && itemCount !== 1) {
+        rowErrors.push({
+          rowNumber,
+          field: "小题/空数量",
+          message: "选择题小题/空数量必须为 1",
+        });
+      }
+
       const optionKeys = new Set(options.map((option) => option.key));
       if (!optionKeys.has("A") || !optionKeys.has("B")) {
         rowErrors.push({
@@ -207,16 +227,69 @@ export async function importQuestionsFromWorkbook(
           message: "选择题答案必须匹配已有选项",
         });
       }
+
+      if (
+        hasSupportedGradingLabels(gradingLabels, gradingModes) &&
+        !gradingModes.every((mode) => mode === "text")
+      ) {
+        rowErrors.push({
+          rowNumber,
+          field: "判分方式",
+          message: "选择题判分方式必须为 文本匹配",
+        });
+      }
+    }
+
+    if (type === "judgement") {
+      if (hasPositiveIntegerItemCount && itemCount !== 1) {
+        rowErrors.push({
+          rowNumber,
+          field: "小题/空数量",
+          message: "判断题小题/空数量必须为 1",
+        });
+      }
+
+      if (!answers.every((answer) => answer === "正确" || answer === "错误")) {
+        rowErrors.push({
+          rowNumber,
+          field: "标准答案",
+          message: "判断题答案必须为 正确 或 错误",
+        });
+      }
+
+      if (
+        hasSupportedGradingLabels(gradingLabels, gradingModes) &&
+        !gradingModes.every((mode) => mode === "text")
+      ) {
+        rowErrors.push({
+          rowNumber,
+          field: "判分方式",
+          message: "判断题判分方式必须为 文本匹配",
+        });
+      }
     }
 
     if (
-      type === "judgement" &&
-      !answers.every((answer) => answer === "正确" || answer === "错误")
+      type === "matching" &&
+      hasSupportedGradingLabels(gradingLabels, gradingModes) &&
+      !gradingModes.every((mode) => mode === "matching")
     ) {
       rowErrors.push({
         rowNumber,
-        field: "标准答案",
-        message: "判断题答案必须为 正确 或 错误",
+        field: "判分方式",
+        message: "配对题判分方式必须为 配对匹配",
+      });
+    }
+
+    if (
+      type === "blank" &&
+      hasSupportedGradingLabels(gradingLabels, gradingModes) &&
+      gradingModes.some((mode) => mode === "matching")
+    ) {
+      rowErrors.push({
+        rowNumber,
+        field: "判分方式",
+        message: "填空题判分方式不能为 配对匹配",
       });
     }
 
@@ -289,6 +362,10 @@ function splitBy(raw: string, delimiter: string) {
     .split(delimiter)
     .map((value) => value.trim())
     .filter(Boolean);
+}
+
+function hasSupportedGradingLabels(labels: string[], modes: GradingMode[]) {
+  return labels.length > 0 && labels.length === modes.length;
 }
 
 function cellText(value: ExcelJS.CellValue | undefined) {
