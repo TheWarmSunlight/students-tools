@@ -4,11 +4,14 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import QrPanel from "@/components/QrPanel";
 import {
-  isClassroomStatusUpdate,
   loadStoredClassroom,
   saveStoredClassroom,
   type StoredClassroom,
 } from "@/components/teacherClassroom";
+import {
+  requestClassroomStatusUpdate,
+  requestTeacherStats,
+} from "@/components/teacherRequests";
 import type { ClassroomAnalytics } from "@/lib/stats/analytics";
 
 type ClassroomDashboardProps = {
@@ -19,10 +22,6 @@ type ClassroomDashboardProps = {
 
 function formatPercent(value: number) {
   return `${Math.round(value * 100)}%`;
-}
-
-async function readJson(response: Response): Promise<unknown> {
-  return response.json().catch(() => null);
 }
 
 export default function ClassroomDashboard({
@@ -45,17 +44,29 @@ export default function ClassroomDashboard({
     setHasLoaded(true);
   }, [classroomId, initialClassroom]);
 
-  const refreshStats = useCallback(async (teacherToken: string) => {
-    const response = await fetch(`/api/teacher/${teacherToken}/stats`, { cache: "no-store" });
-    const body = await readJson(response);
+  const refreshStats = useCallback(async (
+    teacherToken: string,
+    shouldIgnoreResult: () => boolean = () => false,
+  ) => {
+    try {
+      const result = await requestTeacherStats({ teacherToken });
 
-    if (!response.ok) {
-      setError("学情数据读取失败");
-      return;
+      if (shouldIgnoreResult()) {
+        return;
+      }
+
+      if (result.status === "error") {
+        setError(result.error);
+        return;
+      }
+
+      setStats(result.stats);
+      setError("");
+    } catch {
+      if (!shouldIgnoreResult()) {
+        setError("学情数据读取失败");
+      }
     }
-
-    setStats(body as ClassroomAnalytics);
-    setError("");
   }, []);
 
   useEffect(() => {
@@ -63,12 +74,18 @@ export default function ClassroomDashboard({
       return;
     }
 
-    void refreshStats(classroom.teacherToken);
+    let cancelled = false;
+    const shouldIgnoreResult = () => cancelled;
+
+    void refreshStats(classroom.teacherToken, shouldIgnoreResult);
     const timer = window.setInterval(() => {
-      void refreshStats(classroom.teacherToken);
+      void refreshStats(classroom.teacherToken, shouldIgnoreResult);
     }, 3000);
 
-    return () => window.clearInterval(timer);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
   }, [classroom, refreshStats]);
 
   async function updateStatus(action: "start" | "end") {
@@ -80,22 +97,19 @@ export default function ClassroomDashboard({
     setError("");
 
     try {
-      const response = await fetch(`/api/classrooms/${classroom.id}/${action}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ teacherToken: classroom.teacherToken }),
-      });
-      const body = await readJson(response);
+      const result = await requestClassroomStatusUpdate({ action, classroom });
 
-      if (!response.ok || !isClassroomStatusUpdate(body)) {
-        setError(action === "start" ? "课堂开始失败" : "课堂结束失败");
+      if (result.status === "error") {
+        setError(result.error);
         return;
       }
 
-      const nextClassroom = { ...classroom, ...body };
+      const nextClassroom = { ...classroom, ...result.update };
       setClassroom(nextClassroom);
       saveStoredClassroom(nextClassroom);
       await refreshStats(classroom.teacherToken);
+    } catch {
+      setError(action === "start" ? "课堂开始失败，请检查网络后重试" : "课堂结束失败，请检查网络后重试");
     } finally {
       setIsUpdating(false);
     }
@@ -213,4 +227,3 @@ export default function ClassroomDashboard({
     </main>
   );
 }
-

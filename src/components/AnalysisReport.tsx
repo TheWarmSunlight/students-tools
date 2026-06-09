@@ -7,6 +7,7 @@ import type {
   KnowledgePointAnalytics,
   QuestionAnalytics,
 } from "@/lib/stats/analytics";
+import { requestAiReport, requestTeacherStats } from "@/components/teacherRequests";
 
 type AnalysisReportProps = {
   teacherToken: string;
@@ -17,29 +18,6 @@ type AiStatus = "idle" | "loading" | "generated" | "skipped" | "failed";
 
 function formatPercent(value: number) {
   return `${Math.round(value * 100)}%`;
-}
-
-async function readJson(response: Response): Promise<unknown> {
-  return response.json().catch(() => null);
-}
-
-function isReportBody(value: unknown): value is {
-  summary: ClassroomAnalytics;
-  aiText: string;
-  aiStatus: "generated" | "skipped" | "failed";
-} {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    return false;
-  }
-
-  const record = value as Record<string, unknown>;
-  return (
-    typeof record.aiText === "string" &&
-    typeof record.aiStatus === "string" &&
-    ["generated", "skipped", "failed"].includes(record.aiStatus) &&
-    record.summary !== null &&
-    typeof record.summary === "object"
-  );
 }
 
 function barWidth(value: number) {
@@ -86,22 +64,32 @@ export default function AnalysisReport({ teacherToken, initialStats }: AnalysisR
 
     async function loadStats() {
       setIsLoading(true);
-      const response = await fetch(`/api/teacher/${teacherToken}/stats`, { cache: "no-store" });
-      const body = await readJson(response);
+      try {
+        const result = await requestTeacherStats({
+          teacherToken,
+          errorMessage: "报告数据读取失败",
+        });
 
-      if (cancelled) {
-        return;
+        if (cancelled) {
+          return;
+        }
+
+        if (result.status === "error") {
+          setError(result.error);
+          return;
+        }
+
+        setStats(result.stats);
+        setError("");
+      } catch {
+        if (!cancelled) {
+          setError("报告数据读取失败");
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
       }
-
-      if (!response.ok) {
-        setError("报告数据读取失败");
-        setIsLoading(false);
-        return;
-      }
-
-      setStats(body as ClassroomAnalytics);
-      setError("");
-      setIsLoading(false);
     }
 
     void loadStats();
@@ -115,21 +103,20 @@ export default function AnalysisReport({ teacherToken, initialStats }: AnalysisR
     setAiStatus("loading");
     setError("");
 
-    const response = await fetch(`/api/teacher/${teacherToken}/report`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
-    });
-    const body = await readJson(response);
+    try {
+      const result = await requestAiReport({ teacherToken });
 
-    if (!response.ok || !isReportBody(body)) {
+      if (result.status === "error") {
+        setAiStatus("failed");
+        return;
+      }
+
+      setStats(result.report.summary);
+      setAiText(result.report.aiText);
+      setAiStatus(result.report.aiStatus);
+    } catch {
       setAiStatus("failed");
-      return;
     }
-
-    setStats(body.summary);
-    setAiText(body.aiText);
-    setAiStatus(body.aiStatus);
   }
 
   if (isLoading) {
@@ -262,4 +249,3 @@ export default function AnalysisReport({ teacherToken, initialStats }: AnalysisR
     </main>
   );
 }
-

@@ -2,33 +2,14 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { saveStoredClassroom, toStoredClassroom } from "@/components/teacherClassroom";
-
-type ImportResponse = {
-  questionSetId: string;
-};
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
-function readError(value: unknown, fallback: string) {
-  return isRecord(value) && typeof value.error === "string" ? value.error : fallback;
-}
-
-function isImportResponse(value: unknown): value is ImportResponse {
-  return isRecord(value) && typeof value.questionSetId === "string";
-}
-
-async function readJson(response: Response): Promise<unknown> {
-  return response.json().catch(() => null);
-}
+import { importAndCreateClassroom } from "@/components/teacherRequests";
+import { saveStoredClassroom } from "@/components/teacherClassroom";
 
 export default function QuestionEditor() {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
-  const [expectedCount, setExpectedCount] = useState(30);
+  const [expectedCount, setExpectedCount] = useState("30");
   const [error, setError] = useState("");
   const [isImporting, setIsImporting] = useState(false);
 
@@ -36,55 +17,20 @@ export default function QuestionEditor() {
     event.preventDefault();
     setError("");
 
-    if (!file) {
-      setError("请先选择 Excel 文件");
-      return;
-    }
-
-    if (!Number.isInteger(expectedCount) || expectedCount <= 0) {
-      setError("预计人数必须大于 0");
-      return;
-    }
-
     setIsImporting(true);
 
     try {
-      const form = new FormData();
-      form.set("file", file);
-
-      const trimmedTitle = title.trim();
-      if (trimmedTitle) {
-        form.set("title", trimmedTitle);
-      }
-
-      const importResponse = await fetch("/api/question-sets/import", {
-        method: "POST",
-        body: form,
+      const result = await importAndCreateClassroom({
+        file,
+        title,
+        expectedCountText: expectedCount,
+        saveClassroom: saveStoredClassroom,
+        navigate: (path) => router.push(path),
       });
-      const importBody = await readJson(importResponse);
 
-      if (!importResponse.ok || !isImportResponse(importBody)) {
-        throw new Error(readError(importBody, "题目导入失败"));
+      if (result.status === "error") {
+        setError(result.error);
       }
-
-      const classroomResponse = await fetch("/api/classrooms", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          questionSetId: importBody.questionSetId,
-          expectedCount,
-        }),
-      });
-      const classroomBody = await readJson(classroomResponse);
-
-      const classroom = toStoredClassroom(classroomBody);
-
-      if (!classroomResponse.ok || !classroom) {
-        throw new Error(readError(classroomBody, "课堂创建失败"));
-      }
-
-      saveStoredClassroom(classroom);
-      router.push(`/teacher/classrooms/${classroom.id}`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "导入失败");
     } finally {
@@ -132,7 +78,7 @@ export default function QuestionEditor() {
                 type="number"
                 min="1"
                 value={expectedCount}
-                onChange={(event) => setExpectedCount(Number(event.currentTarget.value))}
+                onChange={(event) => setExpectedCount(event.currentTarget.value)}
               />
             </label>
           </div>

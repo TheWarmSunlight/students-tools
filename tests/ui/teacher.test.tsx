@@ -5,6 +5,12 @@ import AnalysisReport from "@/components/AnalysisReport";
 import ClassroomDashboard from "@/components/ClassroomDashboard";
 import QrPanel from "@/components/QrPanel";
 import QuestionEditor from "@/components/QuestionEditor";
+import {
+  importAndCreateClassroom,
+  requestAiReport,
+  requestClassroomStatusUpdate,
+  type TeacherFetcher,
+} from "@/components/teacherRequests";
 import { toStoredClassroom } from "@/components/teacherClassroom";
 import type { ClassroomAnalytics } from "@/lib/stats/analytics";
 
@@ -148,5 +154,111 @@ describe("teacher UI components", () => {
     expect(html).toContain("题目正确率");
     expect(html).toContain('data-testid="knowledge-point-分数小数互化"');
     expect(html).toContain('data-testid="generate-ai-report-button"');
+  });
+
+  it("sends the teacher token when starting a classroom and returns network failures", async () => {
+    const fetcher = vi.fn<TeacherFetcher>().mockResolvedValue(
+      Response.json({
+        id: "classroom-1",
+        questionSetId: "set-1",
+        status: "active",
+        expectedCount: 30,
+        startedAt: "2026-06-10T00:00:00.000Z",
+        endedAt: null,
+      }),
+    );
+
+    const result = await requestClassroomStatusUpdate({
+      action: "start",
+      classroom,
+      fetcher,
+    });
+
+    expect(result).toMatchObject({
+      status: "ok",
+      update: {
+        id: "classroom-1",
+        status: "active",
+      },
+    });
+    expect(fetcher).toHaveBeenCalledWith(
+      "/api/classrooms/classroom-1/start",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ teacherToken: "teacher-token-1" }),
+      }),
+    );
+
+    const failed = await requestClassroomStatusUpdate({
+      action: "start",
+      classroom,
+      fetcher: vi.fn<TeacherFetcher>().mockRejectedValue(new Error("offline")),
+    });
+
+    expect(failed).toEqual({
+      status: "error",
+      error: "课堂开始失败，请检查网络后重试",
+    });
+  });
+
+  it("returns a failed AI report result when report generation fetch rejects", async () => {
+    const result = await requestAiReport({
+      teacherToken: "teacher-token-1",
+      fetcher: vi.fn<TeacherFetcher>().mockRejectedValue(new Error("offline")),
+    });
+
+    expect(result).toEqual({
+      status: "error",
+      error: "AI 报告生成失败，请稍后重试。",
+    });
+  });
+
+  it("imports questions, creates a classroom, stores it, and navigates to the dashboard", async () => {
+    const saveClassroom = vi.fn();
+    const navigate = vi.fn();
+    const file = new File(["mock"], "questions.xlsx", {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    const fetcher = vi
+      .fn<TeacherFetcher>()
+      .mockResolvedValueOnce(Response.json({ questionSetId: "set-2", questions: [] }))
+      .mockResolvedValueOnce(
+        Response.json({
+          id: "classroom-2",
+          questionSetId: "set-2",
+          teacherToken: "teacher-token-2",
+          teacherUrl: "http://school.test/teacher/report/teacher-token-2",
+          status: "draft",
+          expectedCount: 31,
+          questions: classroom.questions,
+        }),
+      );
+
+    const result = await importAndCreateClassroom({
+      file,
+      title: " 分数复习 ",
+      expectedCountText: "31",
+      fetcher,
+      saveClassroom,
+      navigate,
+    });
+
+    const importBody = fetcher.mock.calls[0][1]?.body;
+    const createBody = fetcher.mock.calls[1][1]?.body;
+
+    expect(result).toEqual({ status: "ok" });
+    expect(importBody).toBeInstanceOf(FormData);
+    expect(JSON.parse(String(createBody))).toEqual({
+      questionSetId: "set-2",
+      expectedCount: 31,
+    });
+    expect(saveClassroom).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "classroom-2",
+        startedAt: null,
+        endedAt: null,
+      }),
+    );
+    expect(navigate).toHaveBeenCalledWith("/teacher/classrooms/classroom-2");
   });
 });
