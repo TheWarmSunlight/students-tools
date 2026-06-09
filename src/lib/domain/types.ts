@@ -1,8 +1,14 @@
-import type { CLASSROOM_STATUSES, GRADING_MODES, QUESTION_TYPES } from "./constants";
+import type {
+  CLASSROOM_STATUSES,
+  GRADING_MODES,
+  QUESTION_DIFFICULTIES,
+  QUESTION_TYPES,
+} from "./constants";
 
 export type QuestionType = (typeof QUESTION_TYPES)[number];
 export type GradingMode = (typeof GRADING_MODES)[number];
 export type ClassroomStatus = (typeof CLASSROOM_STATUSES)[number];
+export type QuestionDifficulty = (typeof QUESTION_DIFFICULTIES)[number];
 
 export type QuestionOption = {
   key: string;
@@ -24,7 +30,7 @@ export type Question = {
   options: QuestionOption[];
   items: QuestionItem[];
   knowledgePoints: string[];
-  difficulty: "基础" | "提高" | "拓展";
+  difficulty: QuestionDifficulty;
   includeInStats: boolean;
   explanation: string;
 };
