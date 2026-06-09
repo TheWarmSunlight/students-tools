@@ -6,6 +6,7 @@ import {
   QUESTION_DIFFICULTIES,
   QUESTION_TYPES,
 } from "@/lib/domain/constants";
+import type { LayerCode, LayerRule } from "@/lib/domain/types";
 
 describe("domain constants", () => {
   it("contains the first-version supported question and grading types", () => {
@@ -22,5 +23,13 @@ describe("domain constants", () => {
       { code: "C", name: "基础夯实层", minInclusive: 0.5 },
       { code: "D", name: "补差帮扶层", minInclusive: 0 },
     ]);
+  });
+
+  it("exports layer-derived types", () => {
+    const code: LayerCode = "A";
+    const rule: LayerRule = LAYER_RULES[0];
+
+    expect(code).toBe("A");
+    expect(rule.code).toBe("A");
   });
 });

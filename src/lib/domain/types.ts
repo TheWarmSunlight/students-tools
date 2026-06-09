@@ -1,6 +1,7 @@
 import type {
   CLASSROOM_STATUSES,
   GRADING_MODES,
+  LAYER_RULES,
   QUESTION_DIFFICULTIES,
   QUESTION_TYPES,
 } from "./constants";
@@ -9,6 +10,8 @@ export type QuestionType = (typeof QUESTION_TYPES)[number];
 export type GradingMode = (typeof GRADING_MODES)[number];
 export type ClassroomStatus = (typeof CLASSROOM_STATUSES)[number];
 export type QuestionDifficulty = (typeof QUESTION_DIFFICULTIES)[number];
+export type LayerRule = (typeof LAYER_RULES)[number];
+export type LayerCode = LayerRule["code"];
 
 export type QuestionOption = {
   key: string;
