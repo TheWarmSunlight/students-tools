@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Question } from "@/lib/domain/types";
+import { numericEquivalent } from "@/lib/grading/arithmetic";
 import { gradeSubmission } from "@/lib/grading/grader";
 
 function question(overrides: Partial<Question> = {}): Question {
@@ -48,6 +49,21 @@ describe("gradeSubmission", () => {
 
   it("passes numeric format errors through to the graded item", () => {
     const graded = gradeSubmission(question(), ["1/0", "加法交换律", "3"]);
+
+    expect(graded.items[0]).toEqual({
+      index: 0,
+      correct: false,
+      reason: "格式无法识别",
+    });
+    expect(graded.allCorrect).toBe(false);
+  });
+
+  it("does not let polluted invalid numeric results mark submissions correct", () => {
+    const result = numericEquivalent("bad", "1");
+
+    (result as { equivalent: boolean }).equivalent = true;
+
+    const graded = gradeSubmission(question(), ["bad", "加法交换律", "3"]);
 
     expect(graded.items[0]).toEqual({
       index: 0,

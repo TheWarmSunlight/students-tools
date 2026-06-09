@@ -75,5 +75,16 @@ describe("numericEquivalent", () => {
   it("rejects malformed expressions", () => {
     expect(numericEquivalent("1+", "1")).toEqual(UNRECOGNIZED);
     expect(numericEquivalent("(1+2", "3")).toEqual(UNRECOGNIZED);
+    expect(numericEquivalent(".", "1")).toEqual(UNRECOGNIZED);
+    expect(numericEquivalent("1..2", "1")).toEqual(UNRECOGNIZED);
+    expect(numericEquivalent("1 2", "12")).toEqual(UNRECOGNIZED);
+  });
+
+  it("does not share invalid result objects across calls", () => {
+    const result = numericEquivalent("bad", "1");
+
+    (result as { equivalent: boolean }).equivalent = true;
+
+    expect(numericEquivalent("bad", "1")).toEqual(UNRECOGNIZED);
   });
 });

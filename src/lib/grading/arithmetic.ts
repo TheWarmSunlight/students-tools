@@ -14,11 +14,6 @@ type Token =
   | { type: "number"; value: Rational }
   | { type: "operator"; value: OperatorToken };
 
-const INVALID_RESULT: NumericCompareResult = {
-  equivalent: false,
-  reason: "格式无法识别",
-};
-
 const MAX_INPUT_LENGTH = 80;
 
 export function numericEquivalent(student: string, expected: string): NumericCompareResult {
@@ -26,13 +21,20 @@ export function numericEquivalent(student: string, expected: string): NumericCom
   const expectedValue = evaluate(expected);
 
   if (studentValue === null || expectedValue === null) {
-    return INVALID_RESULT;
+    return invalidResult();
   }
 
   return {
     equivalent:
       studentValue.numerator === expectedValue.numerator &&
       studentValue.denominator === expectedValue.denominator,
+  };
+}
+
+function invalidResult(): NumericCompareResult {
+  return {
+    equivalent: false,
+    reason: "格式无法识别",
   };
 }
 
