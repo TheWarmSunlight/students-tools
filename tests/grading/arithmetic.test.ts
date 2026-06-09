@@ -15,6 +15,8 @@ describe("numericEquivalent", () => {
     ["6÷3", "2"],
     ["(1/8+7/8)", "1"],
     ["40%", "0.4"],
+    [".5", "1/2"],
+    ["5.", "5"],
     [" 1 / 2 ", "0.5"],
   ])("treats %s and %s as equivalent", (student, expected) => {
     expect(numericEquivalent(student, expected)).toEqual({ equivalent: true });
@@ -32,9 +34,14 @@ describe("numericEquivalent", () => {
     expect(numericEquivalent("0.6", "1/2")).toEqual({ equivalent: false });
   });
 
-  it("rejects numeric values outside the safe integer range", () => {
-    expect(numericEquivalent("9007199254740992", "9007199254740993")).toEqual(UNRECOGNIZED);
-    expect(numericEquivalent("9007199254740991+1", "1")).toEqual(UNRECOGNIZED);
+  it.each([
+    ["9007199254740992", "9007199254740993"],
+    ["9007199254740991.1", "9007199254740991"],
+    ["9007199254740990.9", "9007199254740991"],
+    ["999999999999999.99", "1000000000000000"],
+    ["9007199254740991+1", "1"],
+  ])("compares large numeric values exactly for %s and %s", (student, expected) => {
+    expect(numericEquivalent(student, expected)).toEqual({ equivalent: false });
   });
 
   it("rejects blank student or expected input", () => {
