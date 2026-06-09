@@ -12,6 +12,7 @@ import { POST as submitStudentQuestion } from "@/app/api/student/questions/[toke
 import { GET as getTeacherStats } from "@/app/api/teacher/[teacherToken]/stats/route";
 import { POST as buildTeacherReport } from "@/app/api/teacher/[teacherToken]/report/route";
 import { getDatabase } from "@/lib/db/client";
+import { createRepositories } from "@/lib/db/repositories";
 
 const DEFAULT_HEADERS = [
   "题号",
@@ -177,6 +178,15 @@ async function createSampleClassroom() {
   };
 }
 
+async function startSampleClassroom(classroom: { classroomId: string; teacherToken: string }) {
+  return startClassroom(
+    jsonPost(`http://school.test/api/classrooms/${classroom.classroomId}/start`, {
+      teacherToken: classroom.teacherToken,
+    }),
+    routeContext({ classroomId: classroom.classroomId }),
+  );
+}
+
 describe("API routes", () => {
   it("rejects import requests without an Excel file", async () => {
     const response = await importQuestionSet(
@@ -201,7 +211,6 @@ describe("API routes", () => {
 
     expect(draftResponse.status).toBe(200);
     expect(draftBody).toMatchObject({
-      classroomId: classroom.classroomId,
       questionId: "q-Q1",
       questionNo: "Q1",
       prompt: "选择 1/2 的等值分数",
@@ -213,14 +222,20 @@ describe("API routes", () => {
       itemCount: 1,
       status: "draft",
     });
+    expect(draftBody).not.toHaveProperty("classroomId");
     expect(draftBody).not.toHaveProperty("items");
     expect(draftBody).not.toHaveProperty("explanation");
 
-    const startResponse = await startClassroom(
-      jsonPost(`http://school.test/api/classrooms/${classroom.classroomId}/start`, {}),
-      routeContext({ classroomId: classroom.classroomId }),
-    );
+    const startResponse = await startSampleClassroom(classroom);
+    const startBody = await jsonBody(startResponse);
     expect(startResponse.status).toBe(200);
+    expect(startBody).toMatchObject({
+      id: classroom.classroomId,
+      status: "active",
+      startedAt: expect.any(String),
+      endedAt: null,
+    });
+    expect(startBody).not.toHaveProperty("teacherToken");
 
     const activeResponse = await getStudentQuestion(
       new Request(`http://school.test/api/student/questions/${classroom.firstStudentToken}`),
@@ -229,16 +244,81 @@ describe("API routes", () => {
     expect(await jsonBody(activeResponse)).toMatchObject({ status: "active" });
 
     const endResponse = await endClassroom(
-      jsonPost(`http://school.test/api/classrooms/${classroom.classroomId}/end`, {}),
+      jsonPost(`http://school.test/api/classrooms/${classroom.classroomId}/end`, {
+        teacherToken: classroom.teacherToken,
+      }),
       routeContext({ classroomId: classroom.classroomId }),
     );
+    const endBody = await jsonBody(endResponse);
     expect(endResponse.status).toBe(200);
+    expect(endBody).toMatchObject({
+      id: classroom.classroomId,
+      status: "ended",
+      endedAt: expect.any(String),
+    });
+    expect(endBody).not.toHaveProperty("teacherToken");
 
     const endedResponse = await getStudentQuestion(
       new Request(`http://school.test/api/student/questions/${classroom.firstStudentToken}`),
       routeContext({ token: classroom.firstStudentToken }),
     );
     expect(await jsonBody(endedResponse)).toMatchObject({ status: "ended" });
+  });
+
+  it("requires matching teacher tokens for classroom start and end routes", async () => {
+    const classroom = await createSampleClassroom();
+
+    const missingStartResponse = await startClassroom(
+      jsonPost(`http://school.test/api/classrooms/${classroom.classroomId}/start`, {}),
+      routeContext({ classroomId: classroom.classroomId }),
+    );
+    expect(missingStartResponse.status).toBe(403);
+
+    const mismatchedStartResponse = await startClassroom(
+      jsonPost(`http://school.test/api/classrooms/${classroom.classroomId}/start`, {
+        teacherToken: "wrong-token",
+      }),
+      routeContext({ classroomId: classroom.classroomId }),
+    );
+    expect(mismatchedStartResponse.status).toBe(403);
+
+    const draftResponse = await getStudentQuestion(
+      new Request(`http://school.test/api/student/questions/${classroom.firstStudentToken}`),
+      routeContext({ token: classroom.firstStudentToken }),
+    );
+    expect(await jsonBody(draftResponse)).toMatchObject({ status: "draft" });
+
+    const validStartResponse = await startSampleClassroom(classroom);
+    expect(validStartResponse.status).toBe(200);
+
+    const mismatchedEndResponse = await endClassroom(
+      jsonPost(`http://school.test/api/classrooms/${classroom.classroomId}/end`, {
+        teacherToken: "wrong-token",
+      }),
+      routeContext({ classroomId: classroom.classroomId }),
+    );
+    expect(mismatchedEndResponse.status).toBe(403);
+
+    const activeResponse = await getStudentQuestion(
+      new Request(`http://school.test/api/student/questions/${classroom.firstStudentToken}`),
+      routeContext({ token: classroom.firstStudentToken }),
+    );
+    expect(await jsonBody(activeResponse)).toMatchObject({ status: "active" });
+  });
+
+  it("returns 404 for classroom creation when the question set has no questions", async () => {
+    const repos = createRepositories(getDatabase());
+    const questionSetId = repos.questionSets.create("空题集", []);
+
+    const response = await createClassroom(
+      jsonPost("http://school.test/api/classrooms", {
+        questionSetId,
+        expectedCount: 2,
+      }),
+    );
+
+    expect(response.status).toBe(404);
+    expect(await jsonBody(response)).toEqual({ error: "题目集不存在或没有题目" });
   });
 
   it("rejects submissions unless the classroom is active", async () => {
@@ -259,32 +339,43 @@ describe("API routes", () => {
 
   it("upserts students, grades active submissions, and preserves latest answers", async () => {
     const classroom = await createSampleClassroom();
-    await startClassroom(
-      jsonPost(`http://school.test/api/classrooms/${classroom.classroomId}/start`, {}),
-      routeContext({ classroomId: classroom.classroomId }),
+    await startSampleClassroom(classroom);
+
+    const wrongAnswerCountResponse = await submitStudentQuestion(
+      jsonPost(`http://school.test/api/student/questions/${classroom.firstStudentToken}/submit`, {
+        name: "小明",
+        seatNo: "01",
+        answers: ["A", "B"],
+      }),
+      routeContext({ token: classroom.firstStudentToken }),
     );
+    expect(wrongAnswerCountResponse.status).toBe(400);
 
     const firstResponse = await submitStudentQuestion(
       jsonPost(`http://school.test/api/student/questions/${classroom.firstStudentToken}/submit`, {
         name: "小明",
         seatNo: "01",
-        answers: ["A"],
+        answers: [" A "],
       }),
       routeContext({ token: classroom.firstStudentToken }),
     );
     const firstBody = await jsonBody(firstResponse);
     expect(firstResponse.status).toBe(200);
     expect(firstBody).toMatchObject({
-      answers: ["A"],
+      questionId: "q-Q1",
       allCorrect: false,
       submitCount: 1,
+      submittedAt: expect.any(String),
     });
+    expect(firstBody).not.toHaveProperty("answers");
+    expect(firstBody).not.toHaveProperty("studentId");
+    expect(firstBody).not.toHaveProperty("classroomId");
 
     const secondResponse = await submitStudentQuestion(
       jsonPost(`http://school.test/api/student/questions/${classroom.firstStudentToken}/submit`, {
         name: "小明同学",
         seatNo: "01",
-        answers: ["B"],
+        answers: [" B "],
       }),
       routeContext({ token: classroom.firstStudentToken }),
     );
@@ -292,19 +383,20 @@ describe("API routes", () => {
 
     expect(secondResponse.status).toBe(200);
     expect(secondBody).toMatchObject({
-      answers: ["B"],
+      questionId: "q-Q1",
       gradedItems: [{ index: 0, correct: true }],
       allCorrect: true,
       submitCount: 2,
+      submittedAt: expect.any(String),
     });
+    expect(secondBody).not.toHaveProperty("answers");
+    expect(secondBody).not.toHaveProperty("studentId");
+    expect(secondBody).not.toHaveProperty("classroomId");
   });
 
   it("returns teacher analytics and skips AI report generation without an API key", async () => {
     const classroom = await createSampleClassroom();
-    await startClassroom(
-      jsonPost(`http://school.test/api/classrooms/${classroom.classroomId}/start`, {}),
-      routeContext({ classroomId: classroom.classroomId }),
-    );
+    await startSampleClassroom(classroom);
     await submitStudentQuestion(
       jsonPost(`http://school.test/api/student/questions/${classroom.firstStudentToken}/submit`, {
         name: "小明",
@@ -340,5 +432,19 @@ describe("API routes", () => {
       aiText: "",
       aiStatus: "skipped",
     });
+  });
+
+  it("returns 404 for invalid teacher tokens on stats and report routes", async () => {
+    const statsResponse = await getTeacherStats(
+      new Request("http://school.test/api/teacher/not-a-token/stats"),
+      routeContext({ teacherToken: "not-a-token" }),
+    );
+    expect(statsResponse.status).toBe(404);
+
+    const reportResponse = await buildTeacherReport(
+      jsonPost("http://school.test/api/teacher/not-a-token/report", {}),
+      routeContext({ teacherToken: "not-a-token" }),
+    );
+    expect(reportResponse.status).toBe(404);
   });
 });

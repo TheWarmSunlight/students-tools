@@ -31,7 +31,6 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 
   return Response.json({
-    classroomId: classroom.id,
     questionId: question.id,
     questionNo: question.questionNo,
     prompt: question.prompt,

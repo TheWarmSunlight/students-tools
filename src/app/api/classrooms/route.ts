@@ -25,12 +25,17 @@ export async function POST(request: Request) {
   }
 
   const repos = createRepositories(getDatabase());
+  const questions = repos.questionSets.listQuestions(questionSetId);
+  if (questions.length === 0) {
+    return Response.json({ error: "题目集不存在或没有题目" }, { status: 404 });
+  }
+
   const service = createClassroomService(repos);
 
   try {
     const classroom = await service.createClassroom(questionSetId, Number(expectedCount));
     return Response.json(classroom);
   } catch {
-    return Response.json({ error: "题目集不存在" }, { status: 404 });
+    return Response.json({ error: "课堂创建失败" }, { status: 500 });
   }
 }

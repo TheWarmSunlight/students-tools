@@ -55,19 +55,30 @@ export async function POST(request: Request, context: RouteContext) {
     return Response.json({ error: "题目不存在" }, { status: 404 });
   }
 
+  if (answers.length !== question.itemCount) {
+    return Response.json({ error: "请求参数无效" }, { status: 400 });
+  }
+
+  const trimmedAnswers = answers.map((answer) => answer.trim());
   const student = { seatNo, name };
   const studentId = repos.students.upsert(classroom.id, student);
-  const graded = gradeSubmission(question, answers, student);
+  const graded = gradeSubmission(question, trimmedAnswers, student);
   const submission = repos.submissions.save({
     classroomId: classroom.id,
     questionId: question.id,
     studentId,
-    answers,
+    answers: trimmedAnswers,
     gradedItems: graded.items,
     allCorrect: graded.allCorrect,
   });
 
-  return Response.json(submission);
+  return Response.json({
+    questionId: submission.questionId,
+    allCorrect: submission.allCorrect,
+    gradedItems: submission.gradedItems,
+    submitCount: submission.submitCount,
+    submittedAt: submission.submittedAt,
+  });
 }
 
 function isString(value: unknown): value is string {
