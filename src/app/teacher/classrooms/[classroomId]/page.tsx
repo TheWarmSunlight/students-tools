@@ -9,4 +9,3 @@ export default async function ClassroomPage({ params }: ClassroomPageProps) {
 
   return <ClassroomDashboard classroomId={classroomId} />;
 }
-

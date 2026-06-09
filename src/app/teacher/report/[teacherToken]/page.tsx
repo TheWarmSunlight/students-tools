@@ -9,4 +9,3 @@ export default async function ReportPage({ params }: ReportPageProps) {
 
   return <AnalysisReport teacherToken={teacherToken} />;
 }
-

@@ -9,4 +9,3 @@ export default async function ProjectorPage({ params }: ProjectorPageProps) {
 
   return <ClassroomProjector classroomId={classroomId} />;
 }
-
