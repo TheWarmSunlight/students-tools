@@ -69,3 +69,9 @@ After deployment:
 6. Confirm the teacher dashboard updates.
 7. Generate an AI report with test data.
 8. Confirm no real student data appears in Preview deployments.
+
+## References
+
+- Vercel Git Deployments: https://vercel.com/docs/git
+- Vercel Custom Domains: https://vercel.com/docs/domains/working-with-domains/add-a-domain
+- Vercel Functions Runtime: https://vercel.com/docs/functions/runtimes
