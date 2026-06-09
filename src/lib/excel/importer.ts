@@ -99,6 +99,10 @@ export async function importQuestionsFromWorkbook(
     };
 
     const questionNo = getField("题号");
+    if (!questionNo) {
+      rowErrors.push({ rowNumber, field: "题号", message: "题号不能为空" });
+    }
+
     const typeRaw = getField("题型");
     const type = TYPE_MAP[typeRaw];
     if (!type) {
@@ -157,6 +161,20 @@ export async function importQuestionsFromWorkbook(
       }
     }
 
+    const knowledgePoints = splitBy(getField("知识点"), delimiter);
+    if (knowledgePoints.length === 0) {
+      rowErrors.push({ rowNumber, field: "知识点", message: "知识点不能为空" });
+    }
+
+    const includeInStatsRaw = getField("是否纳入统计");
+    if (includeInStatsRaw !== "是" && includeInStatsRaw !== "否") {
+      rowErrors.push({
+        rowNumber,
+        field: "是否纳入统计",
+        message: "是否纳入统计必须为 是 或 否",
+      });
+    }
+
     const difficultyRaw = getField("难度层级");
     let difficulty = DEFAULT_DIFFICULTY;
     if (difficultyRaw) {
@@ -169,6 +187,37 @@ export async function importQuestionsFromWorkbook(
           message: `不支持的难度层级 ${difficultyRaw}`,
         });
       }
+    }
+
+    const options = getOptions(row, headerColumns);
+    if (type === "choice") {
+      const optionKeys = new Set(options.map((option) => option.key));
+      if (!optionKeys.has("A") || !optionKeys.has("B")) {
+        rowErrors.push({
+          rowNumber,
+          field: "选项",
+          message: "选择题至少需要选项A和选项B",
+        });
+      }
+
+      if (!answers.every((answer) => optionKeys.has(answer))) {
+        rowErrors.push({
+          rowNumber,
+          field: "标准答案",
+          message: "选择题答案必须匹配已有选项",
+        });
+      }
+    }
+
+    if (
+      type === "judgement" &&
+      !answers.every((answer) => answer === "正确" || answer === "错误")
+    ) {
+      rowErrors.push({
+        rowNumber,
+        field: "标准答案",
+        message: "判断题答案必须为 正确 或 错误",
+      });
     }
 
     if (rowErrors.length > 0 || !type) {
@@ -191,11 +240,11 @@ export async function importQuestionsFromWorkbook(
       type,
       prompt,
       itemCount,
-      options: getOptions(row, headerColumns),
+      options,
       items,
-      knowledgePoints: splitBy(getField("知识点"), delimiter),
+      knowledgePoints,
       difficulty,
-      includeInStats: getField("是否纳入统计") === "是",
+      includeInStats: includeInStatsRaw === "是",
       explanation: getField("解析"),
     });
   }

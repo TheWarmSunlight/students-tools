@@ -157,4 +157,178 @@ describe("importQuestionsFromWorkbook", () => {
       includeInStats: false,
     });
   });
+
+  it("reports blank required row values", async () => {
+    const buffer = await workbookBuffer([
+      {
+        题号: "",
+        题型: "填空",
+        题干: "1/8 + ____ = 1",
+        "小题/空数量": 1,
+        标准答案: "7/8",
+        答案分隔符: "|",
+        判分方式: "数值等价",
+        知识点: "",
+        难度层级: "基础",
+        是否纳入统计: "",
+      },
+    ]);
+
+    const result = await importQuestionsFromWorkbook(buffer);
+
+    expect(result.questions).toEqual([]);
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        { rowNumber: 2, field: "题号", message: "题号不能为空" },
+        { rowNumber: 2, field: "知识点", message: "知识点不能为空" },
+        { rowNumber: 2, field: "是否纳入统计", message: "是否纳入统计必须为 是 或 否" },
+      ]),
+    );
+  });
+
+  it("reports invalid include-in-stats values", async () => {
+    const buffer = await workbookBuffer([
+      {
+        题号: "Q1",
+        题型: "填空",
+        题干: "1/8 + ____ = 1",
+        "小题/空数量": 1,
+        标准答案: "7/8",
+        答案分隔符: "|",
+        判分方式: "数值等价",
+        知识点: "分数凑整",
+        难度层级: "基础",
+        是否纳入统计: "maybe",
+      },
+    ]);
+
+    const result = await importQuestionsFromWorkbook(buffer);
+
+    expect(result.questions).toEqual([]);
+    expect(result.errors).toContainEqual({
+      rowNumber: 2,
+      field: "是否纳入统计",
+      message: "是否纳入统计必须为 是 或 否",
+    });
+  });
+
+  it("reports choice questions missing option B", async () => {
+    const buffer = await workbookBuffer([
+      {
+        题号: "Q1",
+        题型: "选择",
+        题干: "选择正确答案",
+        "小题/空数量": 1,
+        选项A: "1/2",
+        选项B: "",
+        标准答案: "A",
+        答案分隔符: "|",
+        判分方式: "文本匹配",
+        知识点: "分数比较",
+        难度层级: "基础",
+        是否纳入统计: "是",
+      },
+    ]);
+
+    const result = await importQuestionsFromWorkbook(buffer);
+
+    expect(result.questions).toEqual([]);
+    expect(result.errors).toContainEqual({
+      rowNumber: 2,
+      field: "选项",
+      message: "选择题至少需要选项A和选项B",
+    });
+  });
+
+  it("reports choice answers that do not match non-empty options", async () => {
+    const buffer = await workbookBuffer([
+      {
+        题号: "Q1",
+        题型: "选择",
+        题干: "选择正确答案",
+        "小题/空数量": 1,
+        选项A: "1/2",
+        选项B: "3/4",
+        标准答案: "C",
+        答案分隔符: "|",
+        判分方式: "文本匹配",
+        知识点: "分数比较",
+        难度层级: "基础",
+        是否纳入统计: "是",
+      },
+    ]);
+
+    const result = await importQuestionsFromWorkbook(buffer);
+
+    expect(result.questions).toEqual([]);
+    expect(result.errors).toContainEqual({
+      rowNumber: 2,
+      field: "标准答案",
+      message: "选择题答案必须匹配已有选项",
+    });
+  });
+
+  it("reports judgement answers outside 正确 or 错误", async () => {
+    const buffer = await workbookBuffer([
+      {
+        题号: "Q1",
+        题型: "判断",
+        题干: "1/2 大于 3/4",
+        "小题/空数量": 1,
+        标准答案: "不确定",
+        答案分隔符: "|",
+        判分方式: "文本匹配",
+        知识点: "分数比较",
+        难度层级: "基础",
+        是否纳入统计: "是",
+      },
+    ]);
+
+    const result = await importQuestionsFromWorkbook(buffer);
+
+    expect(result.questions).toEqual([]);
+    expect(result.errors).toContainEqual({
+      rowNumber: 2,
+      field: "标准答案",
+      message: "判断题答案必须为 正确 或 错误",
+    });
+  });
+
+  it("returns no questions when any imported row has validation errors", async () => {
+    const buffer = await workbookBuffer([
+      {
+        题号: "Q1",
+        题型: "填空",
+        题干: "1/8 + ____ = 1",
+        "小题/空数量": 1,
+        标准答案: "7/8",
+        答案分隔符: "|",
+        判分方式: "数值等价",
+        知识点: "分数凑整",
+        难度层级: "基础",
+        是否纳入统计: "是",
+      },
+      {
+        题号: "Q2",
+        题型: "填空",
+        题干: "1/4 + ____ = 1",
+        "小题/空数量": 1,
+        标准答案: "3/4",
+        答案分隔符: "|",
+        判分方式: "数值等价",
+        知识点: "分数凑整",
+        难度层级: "基础",
+        是否纳入统计: "maybe",
+      },
+    ]);
+
+    const result = await importQuestionsFromWorkbook(buffer);
+
+    expect(result.questions).toEqual([]);
+    expect(result.errors).toContainEqual({
+      rowNumber: 3,
+      field: "是否纳入统计",
+      message: "是否纳入统计必须为 是 或 否",
+    });
+  });
 });
