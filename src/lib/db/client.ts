@@ -5,6 +5,8 @@ import { SCHEMA_SQL } from "./schema";
 
 export type AppDatabase = Database.Database;
 
+let singleton: AppDatabase | null = null;
+
 export function openDatabase(path = process.env.DATABASE_PATH || "./data/app.db"): AppDatabase {
   if (path !== ":memory:") {
     mkdirSync(dirname(path), { recursive: true });
@@ -15,4 +17,9 @@ export function openDatabase(path = process.env.DATABASE_PATH || "./data/app.db"
   db.pragma("journal_mode = WAL");
   db.exec(SCHEMA_SQL);
   return db;
+}
+
+export function getDatabase(): AppDatabase {
+  if (!singleton) singleton = openDatabase();
+  return singleton;
 }
