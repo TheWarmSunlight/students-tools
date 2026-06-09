@@ -148,6 +148,119 @@ describe("buildClassroomAnalytics", () => {
     ]);
   });
 
+  it("counts only the first valid graded item per index and recomputes all-correct from expected items", () => {
+    const analytics = buildClassroomAnalytics({
+      expectedCount: 1,
+      students: [{ id: "s-1", seatNo: "01", name: "王同学" }],
+      questions: [
+        question({
+          id: "q-1",
+          questionNo: "Q1",
+          itemCount: 2,
+          items: [
+            { index: 0, answer: "1", gradingMode: "text" },
+            { index: 1, answer: "2", gradingMode: "text" },
+          ],
+          knowledgePoints: ["分数加法"],
+        }),
+      ],
+      submissions: [
+        {
+          studentId: "s-1",
+          questionId: "q-1",
+          gradedItems: [
+            { index: 0, correct: true },
+            { index: 0, correct: false },
+            { index: 99, correct: true },
+          ],
+          allCorrect: true,
+        },
+      ],
+    });
+
+    expect(analytics.averageAccuracy).toBe(1);
+    expect(analytics.questions).toEqual([
+      {
+        questionId: "q-1",
+        questionNo: "Q1",
+        itemAccuracy: 1,
+        errorRate: 0,
+        allCorrectRate: 0,
+        submittedCount: 1,
+        correctItems: 1,
+        totalItems: 1,
+        itemStats: [
+          { index: 0, correct: 1, total: 1, accuracy: 1, errorRate: 0 },
+          { index: 1, correct: 0, total: 0, accuracy: 0, errorRate: 0 },
+        ],
+      },
+    ]);
+    expect(analytics.knowledgePoints).toEqual([
+      { name: "分数加法", accuracy: 1, correctItems: 1, totalItems: 1 },
+    ]);
+    expect(analytics.students).toEqual([
+      {
+        id: "s-1",
+        seatNo: "01",
+        name: "王同学",
+        accuracy: 1,
+        correctItems: 1,
+        totalItems: 1,
+        layerCode: "A",
+      },
+    ]);
+  });
+
+  it("treats a clean submission as all-correct when every expected item is correct despite a false flag", () => {
+    const analytics = buildClassroomAnalytics({
+      expectedCount: 1,
+      students: [{ id: "s-1", seatNo: "01", name: "王同学" }],
+      questions: [
+        question({
+          id: "q-1",
+          questionNo: "Q1",
+          itemCount: 2,
+          items: [
+            { index: 0, answer: "1", gradingMode: "text" },
+            { index: 1, answer: "2", gradingMode: "text" },
+          ],
+          knowledgePoints: ["分数加法"],
+        }),
+      ],
+      submissions: [
+        {
+          studentId: "s-1",
+          questionId: "q-1",
+          gradedItems: [
+            { index: 0, correct: true },
+            { index: 1, correct: true },
+          ],
+          allCorrect: false,
+        },
+      ],
+    });
+
+    expect(analytics.averageAccuracy).toBe(1);
+    expect(analytics.questions[0]).toMatchObject({
+      allCorrectRate: 1,
+      correctItems: 2,
+      totalItems: 2,
+      itemStats: [
+        { index: 0, correct: 1, total: 1, accuracy: 1, errorRate: 0 },
+        { index: 1, correct: 1, total: 1, accuracy: 1, errorRate: 0 },
+      ],
+    });
+    expect(analytics.knowledgePoints).toEqual([
+      { name: "分数加法", accuracy: 1, correctItems: 2, totalItems: 2 },
+    ]);
+    expect(analytics.students[0]).toMatchObject({
+      accuracy: 1,
+      correctItems: 2,
+      totalItems: 2,
+      layerCode: "A",
+    });
+  });
+
   it("excludes includeInStats=false questions from analytics but still counts their submissions", () => {
     const analytics = buildClassroomAnalytics({
       expectedCount: 2,

@@ -14,7 +14,9 @@ type SubmissionInput = {
   allCorrect: boolean;
 };
 
-type ItemAnalytics = {
+type GradedItem = SubmissionInput["gradedItems"][number];
+
+export type ItemAnalytics = {
   index: number;
   correct: number;
   total: number;
@@ -22,7 +24,7 @@ type ItemAnalytics = {
   errorRate: number;
 };
 
-type QuestionAnalytics = {
+export type QuestionAnalytics = {
   questionId: string;
   questionNo: string;
   itemAccuracy: number;
@@ -34,21 +36,21 @@ type QuestionAnalytics = {
   itemStats: ItemAnalytics[];
 };
 
-type KnowledgePointAnalytics = {
+export type KnowledgePointAnalytics = {
   name: string;
   accuracy: number;
   correctItems: number;
   totalItems: number;
 };
 
-type StudentAnalytics = StudentInput & {
+export type StudentAnalytics = StudentInput & {
   accuracy: number;
   correctItems: number;
   totalItems: number;
   layerCode: LayerCode;
 };
 
-type LayerAnalytics = {
+export type LayerAnalytics = {
   code: LayerCode;
   name: string;
   count: number;
@@ -98,6 +100,36 @@ function layerForAccuracy(accuracy: number): LayerCode {
 
 function unique(values: string[]): string[] {
   return [...new Set(values)];
+}
+
+function firstValidGradedItems(
+  gradedItems: GradedItem[],
+  expectedItemsByIndex: ReadonlyMap<number, unknown>,
+): GradedItem[] {
+  const seenIndexes = new Set<number>();
+  const validGradedItems: GradedItem[] = [];
+
+  for (const gradedItem of gradedItems) {
+    if (!expectedItemsByIndex.has(gradedItem.index) || seenIndexes.has(gradedItem.index)) {
+      continue;
+    }
+
+    seenIndexes.add(gradedItem.index);
+    validGradedItems.push(gradedItem);
+  }
+
+  return validGradedItems;
+}
+
+function hasAllExpectedCorrectItems(
+  gradedItems: GradedItem[],
+  expectedItemsByIndex: ReadonlyMap<number, unknown>,
+): boolean {
+  return (
+    expectedItemsByIndex.size > 0 &&
+    gradedItems.length === expectedItemsByIndex.size &&
+    gradedItems.every((gradedItem) => gradedItem.correct && expectedItemsByIndex.has(gradedItem.index))
+  );
 }
 
 export function buildClassroomAnalytics(input: {
@@ -160,14 +192,24 @@ export function buildClassroomAnalytics(input: {
     }
 
     questionStats.submittedCount += 1;
-    if (submission.allCorrect) {
+    const validGradedItems = firstValidGradedItems(
+      submission.gradedItems,
+      questionStats.itemStatsByIndex,
+    );
+
+    if (hasAllExpectedCorrectItems(validGradedItems, questionStats.itemStatsByIndex)) {
       questionStats.allCorrectCount += 1;
     }
 
     const studentStats = studentStatsById.get(submission.studentId);
     const knowledgePoints = unique(questionStats.question.knowledgePoints);
 
-    for (const gradedItem of submission.gradedItems) {
+    for (const gradedItem of validGradedItems) {
+      const itemStats = questionStats.itemStatsByIndex.get(gradedItem.index);
+      if (!itemStats) {
+        continue;
+      }
+
       const correctIncrement = gradedItem.correct ? 1 : 0;
 
       questionStats.correctItems += correctIncrement;
@@ -175,11 +217,8 @@ export function buildClassroomAnalytics(input: {
       classStats.correctItems += correctIncrement;
       classStats.totalItems += 1;
 
-      const itemStats = questionStats.itemStatsByIndex.get(gradedItem.index);
-      if (itemStats) {
-        itemStats.correct += correctIncrement;
-        itemStats.total += 1;
-      }
+      itemStats.correct += correctIncrement;
+      itemStats.total += 1;
 
       if (studentStats) {
         studentStats.correctItems += correctIncrement;
