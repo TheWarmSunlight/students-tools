@@ -94,4 +94,14 @@ describe("gradeSubmission", () => {
 
     expect(gradeSubmission(question(), ["0.5", "加法交换律", "3"], student).student).toEqual(student);
   });
+
+  it("does not share the default student identity between submissions", () => {
+    const first = gradeSubmission(question(), ["0.5", "加法交换律", "3"]);
+    first.student.name = "污染";
+
+    const second = gradeSubmission(question(), ["0.5", "加法交换律", "3"]);
+
+    expect(second.student).toEqual({ seatNo: "", name: "" });
+    expect(second.student).not.toBe(first.student);
+  });
 });

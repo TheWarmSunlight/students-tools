@@ -38,7 +38,8 @@ function evaluate(input: string): number | null {
   try {
     const parser = new Parser(tokenize(input));
     const value = parser.parse();
-    return Number.isFinite(value) ? value : null;
+    assertRecognizedNumericValue(value);
+    return value;
   } catch {
     return null;
   }
@@ -118,9 +119,7 @@ function readNumber(input: string, start: number) {
   }
 
   const value = Number(input.slice(start, position));
-  if (!Number.isFinite(value)) {
-    throw new Error("Non-finite number");
-  }
+  assertRecognizedNumericValue(value);
 
   return {
     token: { type: "number", value } satisfies Token,
@@ -130,6 +129,12 @@ function readNumber(input: string, start: number) {
 
 function isDigit(char: string) {
   return char >= "0" && char <= "9";
+}
+
+function assertRecognizedNumericValue(value: number) {
+  if (!Number.isFinite(value) || Math.abs(value) > Number.MAX_SAFE_INTEGER) {
+    throw new Error("Unsafe numeric value");
+  }
 }
 
 class Parser {
@@ -152,7 +157,7 @@ class Parser {
       const operator = this.previous().value;
       const right = this.term();
       value = operator === "+" ? value + right : value - right;
-      this.assertFinite(value);
+      assertRecognizedNumericValue(value);
     }
 
     return value;
@@ -170,7 +175,7 @@ class Parser {
       }
 
       value = operator === "*" ? value * right : value / right;
-      this.assertFinite(value);
+      assertRecognizedNumericValue(value);
     }
 
     return value;
@@ -181,7 +186,7 @@ class Parser {
 
     while (this.match("%")) {
       value /= 100;
-      this.assertFinite(value);
+      assertRecognizedNumericValue(value);
     }
 
     return value;
@@ -194,7 +199,7 @@ class Parser {
 
     if (this.match("-")) {
       const value = -this.unary();
-      this.assertFinite(value);
+      assertRecognizedNumericValue(value);
       return value;
     }
 
@@ -248,11 +253,5 @@ class Parser {
 
   private peek() {
     return this.tokens[this.position];
-  }
-
-  private assertFinite(value: number) {
-    if (!Number.isFinite(value)) {
-      throw new Error("Non-finite result");
-    }
   }
 }

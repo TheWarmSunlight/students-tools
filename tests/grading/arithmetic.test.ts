@@ -12,6 +12,7 @@ describe("numericEquivalent", () => {
     ["3×4", "12"],
     ["3x4", "12"],
     ["3*4", "12"],
+    ["6÷3", "2"],
     ["(1/8+7/8)", "1"],
     ["40%", "0.4"],
     [" 1 / 2 ", "0.5"],
@@ -29,6 +30,11 @@ describe("numericEquivalent", () => {
 
   it("returns false without a format reason when valid numbers differ", () => {
     expect(numericEquivalent("0.6", "1/2")).toEqual({ equivalent: false });
+  });
+
+  it("rejects numeric values outside the safe integer range", () => {
+    expect(numericEquivalent("9007199254740992", "9007199254740993")).toEqual(UNRECOGNIZED);
+    expect(numericEquivalent("9007199254740991+1", "1")).toEqual(UNRECOGNIZED);
   });
 
   it("rejects blank student or expected input", () => {

@@ -6,12 +6,10 @@ type ItemResult = {
   reason?: "格式无法识别";
 };
 
-const DEFAULT_STUDENT: StudentIdentity = { seatNo: "", name: "" };
-
 export function gradeSubmission(
   question: Question,
   answers: string[],
-  student: StudentIdentity = DEFAULT_STUDENT,
+  student: StudentIdentity = { seatNo: "", name: "" },
 ): GradedSubmission {
   const items = question.items.map((item) => {
     const result = gradeItem(item.gradingMode, answers[item.index] ?? "", item.answer);
