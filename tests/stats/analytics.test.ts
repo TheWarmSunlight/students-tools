@@ -269,6 +269,65 @@ describe("buildClassroomAnalytics", () => {
     });
   });
 
+  it("ignores unknown student submissions for submit rate and analytics", () => {
+    const analytics = buildClassroomAnalytics({
+      expectedCount: 2,
+      students: [{ id: "s-1", seatNo: "01", name: "王同学" }],
+      questions: [question({ id: "q-1", questionNo: "Q1", knowledgePoints: ["纳入"] })],
+      submissions: [
+        {
+          studentId: "s-ghost",
+          questionId: "q-1",
+          gradedItems: [{ index: 0, correct: true }],
+          allCorrect: true,
+        },
+        {
+          studentId: "s-1",
+          questionId: "q-1",
+          gradedItems: [{ index: 0, correct: false }],
+          allCorrect: false,
+        },
+      ],
+    });
+
+    expect(analytics.submittedStudentCount).toBe(1);
+    expect(analytics.submitRate).toBe(1 / 2);
+    expect(analytics.averageAccuracy).toBe(0);
+    expect(analytics.questions).toEqual([
+      {
+        questionId: "q-1",
+        questionNo: "Q1",
+        itemAccuracy: 0,
+        errorRate: 1,
+        allCorrectRate: 0,
+        submittedCount: 1,
+        correctItems: 0,
+        totalItems: 1,
+        itemStats: [{ index: 0, correct: 0, total: 1, accuracy: 0, errorRate: 1 }],
+      },
+    ]);
+    expect(analytics.knowledgePoints).toEqual([
+      { name: "纳入", accuracy: 0, correctItems: 0, totalItems: 1 },
+    ]);
+    expect(analytics.students).toEqual([
+      {
+        id: "s-1",
+        seatNo: "01",
+        name: "王同学",
+        accuracy: 0,
+        correctItems: 0,
+        totalItems: 1,
+        layerCode: "D",
+      },
+    ]);
+    expect(analytics.layers).toEqual([
+      { code: "A", name: "优秀拓展层", count: 0, percentage: 0 },
+      { code: "B", name: "良好提升层", count: 0, percentage: 0 },
+      { code: "C", name: "基础夯实层", count: 0, percentage: 0 },
+      { code: "D", name: "补差帮扶层", count: 1, percentage: 1 },
+    ]);
+  });
+
   it("returns zero rates instead of NaN when expectedCount or students are empty", () => {
     const analytics = buildClassroomAnalytics({
       expectedCount: 0,

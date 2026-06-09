@@ -110,7 +110,8 @@ export function buildClassroomAnalytics(input: {
   const questionStatsById = new Map<string, MutableQuestionStats>();
   const knowledgePointStatsByName = new Map<string, KnowledgePointAnalytics>();
   const studentStatsById = new Map<string, CountStats>();
-  const submittedStudentIds = new Set(input.submissions.map((submission) => submission.studentId));
+  const knownStudentIds = new Set(input.students.map((student) => student.id));
+  const submittedStudentIds = new Set<string>();
   const classStats: CountStats = { correctItems: 0, totalItems: 0 };
 
   for (const student of input.students) {
@@ -146,6 +147,12 @@ export function buildClassroomAnalytics(input: {
   }
 
   for (const submission of input.submissions) {
+    if (!knownStudentIds.has(submission.studentId)) {
+      continue;
+    }
+
+    submittedStudentIds.add(submission.studentId);
+
     const questionStats = questionStatsById.get(submission.questionId);
 
     if (!questionStats) {
