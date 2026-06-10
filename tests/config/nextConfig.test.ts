@@ -13,7 +13,7 @@ describe("next config", () => {
     const buildConfig = resolveConfig(PHASE_PRODUCTION_BUILD);
 
     expect(devConfig.distDir).toBe(".next-dev");
-    expect(buildConfig.distDir).toBe(".next-build");
+    expect(buildConfig.distDir).toBe(".next");
     expect(devConfig.distDir).not.toBe(buildConfig.distDir);
   });
 
