@@ -1,6 +1,5 @@
 import { generateZhipuReport, readZhipuConfigFromEnv } from "@/lib/ai/zhipu";
-import { getDatabase } from "@/lib/db/client";
-import { createRepositories } from "@/lib/db/repositories";
+import { getRepositories } from "@/lib/db/runtime";
 import { buildReportMessages } from "@/lib/reports/prompt";
 import { buildTeacherAnalytics } from "../analytics";
 
@@ -12,14 +11,14 @@ type RouteContext = {
 
 export async function POST(_request: Request, context: RouteContext) {
   const { teacherToken } = await context.params;
-  const repos = createRepositories(getDatabase());
-  const classroom = repos.classrooms.getByTeacherToken(teacherToken);
+  const repos = await getRepositories();
+  const classroom = await repos.classrooms.getByTeacherToken(teacherToken);
 
   if (!classroom) {
     return Response.json({ error: "教师口令无效" }, { status: 404 });
   }
 
-  const summary = buildTeacherAnalytics(repos, classroom);
+  const summary = await buildTeacherAnalytics(repos, classroom);
   const config = readZhipuConfigFromEnv();
 
   if (!config.apiKey) {

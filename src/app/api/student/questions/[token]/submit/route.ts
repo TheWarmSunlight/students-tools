@@ -1,5 +1,4 @@
-import { getDatabase } from "@/lib/db/client";
-import { createRepositories } from "@/lib/db/repositories";
+import { getRepositories } from "@/lib/db/runtime";
 import { gradeSubmission } from "@/lib/grading/grader";
 
 export const runtime = "nodejs";
@@ -30,14 +29,14 @@ export async function POST(request: Request, context: RouteContext) {
     return Response.json({ error: "请求参数无效" }, { status: 400 });
   }
 
-  const repos = createRepositories(getDatabase());
-  const questionToken = repos.questionTokens.get(token);
+  const repos = await getRepositories();
+  const questionToken = await repos.questionTokens.get(token);
 
   if (!questionToken) {
     return Response.json({ error: "题目不存在" }, { status: 404 });
   }
 
-  const classroom = repos.classrooms.get(questionToken.classroomId);
+  const classroom = await repos.classrooms.get(questionToken.classroomId);
   if (!classroom) {
     return Response.json({ error: "课堂不存在" }, { status: 404 });
   }
@@ -46,10 +45,9 @@ export async function POST(request: Request, context: RouteContext) {
     return Response.json({ error: "课堂未开始或已结束" }, { status: 409 });
   }
 
-  const question = repos
-    .questionSets
-    .listQuestions(classroom.questionSetId)
-    .find((candidate) => candidate.id === questionToken.questionId);
+  const question = (await repos.questionSets.listQuestions(classroom.questionSetId)).find(
+    (candidate) => candidate.id === questionToken.questionId,
+  );
 
   if (!question) {
     return Response.json({ error: "题目不存在" }, { status: 404 });
@@ -61,9 +59,9 @@ export async function POST(request: Request, context: RouteContext) {
 
   const trimmedAnswers = answers.map((answer) => answer.trim());
   const student = { seatNo, name };
-  const studentId = repos.students.upsert(classroom.id, student);
+  const studentId = await repos.students.upsert(classroom.id, student);
   const graded = gradeSubmission(question, trimmedAnswers, student);
-  const submission = repos.submissions.save({
+  const submission = await repos.submissions.save({
     classroomId: classroom.id,
     questionId: question.id,
     studentId,

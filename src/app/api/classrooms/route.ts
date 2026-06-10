@@ -1,6 +1,5 @@
 import { createClassroomService } from "@/lib/classroom/service";
-import { getDatabase } from "@/lib/db/client";
-import { createRepositories } from "@/lib/db/repositories";
+import { getRepositories } from "@/lib/db/runtime";
 
 export const runtime = "nodejs";
 
@@ -28,8 +27,8 @@ export async function POST(request: Request) {
     return Response.json({ error: "请求参数无效" }, { status: 400 });
   }
 
-  const repos = createRepositories(getDatabase());
-  const questions = repos.questionSets.listQuestions(questionSetId);
+  const repos = await getRepositories();
+  const questions = await repos.questionSets.listQuestions(questionSetId);
   if (questions.length === 0) {
     return Response.json({ error: "题目集不存在或没有题目" }, { status: 404 });
   }

@@ -1,6 +1,5 @@
 import { createClassroomService } from "@/lib/classroom/service";
-import { getDatabase } from "@/lib/db/client";
-import { createRepositories } from "@/lib/db/repositories";
+import { getRepositories } from "@/lib/db/runtime";
 import { authorizeClassroom, readTeacherToken, sanitizeClassroom } from "../lifecycle";
 
 export const runtime = "nodejs";
@@ -11,15 +10,15 @@ type RouteContext = {
 
 export async function POST(request: Request, context: RouteContext) {
   const { classroomId } = await context.params;
-  const repos = createRepositories(getDatabase());
-  const authorized = authorizeClassroom(repos, classroomId, await readTeacherToken(request));
+  const repos = await getRepositories();
+  const authorized = await authorizeClassroom(repos, classroomId, await readTeacherToken(request));
 
   if (authorized instanceof Response) {
     return authorized;
   }
 
   const service = createClassroomService(repos);
-  const classroom = service.endClassroom(classroomId);
+  const classroom = await service.endClassroom(classroomId);
 
   if (!classroom) {
     return Response.json({ error: "课堂不存在" }, { status: 404 });

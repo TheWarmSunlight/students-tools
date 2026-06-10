@@ -1,18 +1,22 @@
-import type { createRepositories, ClassroomRecord } from "@/lib/db/repositories";
+import type { ClassroomRecord, RepositorySet } from "@/lib/db/repositories";
 import { buildClassroomAnalytics } from "@/lib/stats/analytics";
 
-type Repositories = ReturnType<typeof createRepositories>;
+export async function buildTeacherAnalytics(repos: RepositorySet, classroom: ClassroomRecord) {
+  const [questions, students, submissions] = await Promise.all([
+    repos.questionSets.listQuestions(classroom.questionSetId),
+    repos.students.listByClassroom(classroom.id),
+    repos.submissions.listByClassroom(classroom.id),
+  ]);
 
-export function buildTeacherAnalytics(repos: Repositories, classroom: ClassroomRecord) {
   return buildClassroomAnalytics({
     expectedCount: classroom.expectedCount,
-    questions: repos.questionSets.listQuestions(classroom.questionSetId),
-    students: repos.students.listByClassroom(classroom.id).map((student) => ({
+    questions,
+    students: students.map((student) => ({
       id: student.id,
       seatNo: student.seatNo,
       name: student.name,
     })),
-    submissions: repos.submissions.listByClassroom(classroom.id).map((submission) => ({
+    submissions: submissions.map((submission) => ({
       questionId: submission.questionId,
       studentId: submission.studentId,
       gradedItems: submission.gradedItems,

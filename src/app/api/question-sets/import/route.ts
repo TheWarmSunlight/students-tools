@@ -1,5 +1,4 @@
-import { getDatabase } from "@/lib/db/client";
-import { createRepositories } from "@/lib/db/repositories";
+import { getRepositories } from "@/lib/db/runtime";
 import { importQuestionsFromWorkbook } from "@/lib/excel/importer";
 
 export const runtime = "nodejs";
@@ -26,8 +25,8 @@ export async function POST(request: Request) {
     return Response.json(imported, { status: 400 });
   }
 
-  const repos = createRepositories(getDatabase());
-  const questionSetId = repos.questionSets.create(title, imported.questions);
+  const repos = await getRepositories();
+  const questionSetId = await repos.questionSets.create(title, imported.questions);
 
   return Response.json({ questionSetId, questions: imported.questions });
 }

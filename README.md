@@ -75,6 +75,7 @@ DATABASE_URL=
 Set the real `ZHIPU_API_KEY` and managed persistent database URL only in the Vercel dashboard.
 
 Do not set `DATABASE_PATH` in Vercel Production. Local SQLite is for local development or temporary demos only.
+When `DATABASE_URL` is configured, the app uses Postgres. Without it, the app falls back to local SQLite.
 
 ### Verification
 

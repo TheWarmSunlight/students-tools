@@ -1,7 +1,7 @@
 import QRCode from "qrcode";
-import type { createRepositories } from "@/lib/db/repositories";
+import type { CreatedClassroom, RepositorySet } from "@/lib/db/repositories";
 
-type Repositories = ReturnType<typeof createRepositories>;
+type Repositories = RepositorySet;
 
 export type ClassroomQuestionLink = {
   questionId: string;
@@ -10,7 +10,7 @@ export type ClassroomQuestionLink = {
   qrDataUrl: string;
 };
 
-export type CreatedClassroomWithLinks = ReturnType<Repositories["classrooms"]["create"]> & {
+export type CreatedClassroomWithLinks = CreatedClassroom & {
   teacherUrl: string;
   questions: ClassroomQuestionLink[];
 };
@@ -30,11 +30,11 @@ export function createClassroomService(
       questionSetId: string,
       expectedCount: number,
     ): Promise<CreatedClassroomWithLinks> {
-      const classroom = repos.classrooms.create(questionSetId, expectedCount);
-      const questions = repos.questionSets.listQuestions(questionSetId);
+      const classroom = await repos.classrooms.create(questionSetId, expectedCount);
+      const questions = await repos.questionSets.listQuestions(questionSetId);
       const questionLinks = await Promise.all(
         questions.map(async (question) => {
-          const token = repos.questionTokens.create(classroom.id, question.id);
+          const token = await repos.questionTokens.create(classroom.id, question.id);
           const studentUrl = `${baseUrl}/student/${token}`;
           const qrDataUrl = await QRCode.toDataURL(studentUrl);
 

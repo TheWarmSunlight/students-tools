@@ -1,6 +1,4 @@
-import type { createRepositories, ClassroomRecord } from "@/lib/db/repositories";
-
-type Repositories = ReturnType<typeof createRepositories>;
+import type { ClassroomRecord, RepositorySet } from "@/lib/db/repositories";
 
 export async function readTeacherToken(request: Request): Promise<string> {
   const body = await request.json().catch(() => null);
@@ -23,12 +21,12 @@ export function sanitizeClassroom(classroom: ClassroomRecord) {
   };
 }
 
-export function authorizeClassroom(
-  repos: Repositories,
+export async function authorizeClassroom(
+  repos: RepositorySet,
   classroomId: string,
   teacherToken: string,
-): ClassroomRecord | Response {
-  const classroom = repos.classrooms.get(classroomId);
+): Promise<ClassroomRecord | Response> {
+  const classroom = await repos.classrooms.get(classroomId);
 
   if (!classroom) {
     return Response.json({ error: "课堂不存在" }, { status: 404 });

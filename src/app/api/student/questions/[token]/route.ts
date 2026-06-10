@@ -1,5 +1,4 @@
-import { getDatabase } from "@/lib/db/client";
-import { createRepositories } from "@/lib/db/repositories";
+import { getRepositories } from "@/lib/db/runtime";
 
 export const runtime = "nodejs";
 
@@ -9,22 +8,21 @@ type RouteContext = {
 
 export async function GET(_request: Request, context: RouteContext) {
   const { token } = await context.params;
-  const repos = createRepositories(getDatabase());
-  const questionToken = repos.questionTokens.get(token);
+  const repos = await getRepositories();
+  const questionToken = await repos.questionTokens.get(token);
 
   if (!questionToken) {
     return Response.json({ error: "题目不存在" }, { status: 404 });
   }
 
-  const classroom = repos.classrooms.get(questionToken.classroomId);
+  const classroom = await repos.classrooms.get(questionToken.classroomId);
   if (!classroom) {
     return Response.json({ error: "课堂不存在" }, { status: 404 });
   }
 
-  const question = repos
-    .questionSets
-    .listQuestions(classroom.questionSetId)
-    .find((candidate) => candidate.id === questionToken.questionId);
+  const question = (await repos.questionSets.listQuestions(classroom.questionSetId)).find(
+    (candidate) => candidate.id === questionToken.questionId,
+  );
 
   if (!question) {
     return Response.json({ error: "题目不存在" }, { status: 404 });

@@ -119,6 +119,33 @@ type SaveSubmissionInput = {
   submittedAt?: string;
 };
 
+export type MaybePromise<T> = T | Promise<T>;
+
+export type RepositorySet = {
+  questionSets: {
+    create(title: string, questions: Question[]): MaybePromise<string>;
+    listQuestions(questionSetId: string): MaybePromise<Question[]>;
+  };
+  classrooms: {
+    create(questionSetId: string, expectedCount: number): MaybePromise<CreatedClassroom>;
+    get(id: string): MaybePromise<ClassroomRecord | null>;
+    getByTeacherToken(token: string): MaybePromise<ClassroomRecord | null>;
+    setStatus(id: string, status: ClassroomStatus): MaybePromise<ClassroomRecord | null>;
+  };
+  questionTokens: {
+    create(classroomId: string, questionId: string): MaybePromise<string>;
+    get(token: string): MaybePromise<QuestionTokenRecord | null>;
+  };
+  students: {
+    upsert(classroomId: string, student: StudentIdentity): MaybePromise<string>;
+    listByClassroom(classroomId: string): MaybePromise<StudentRecord[]>;
+  };
+  submissions: {
+    save(input: SaveSubmissionInput): MaybePromise<SubmissionRecord>;
+    listByClassroom(classroomId: string): MaybePromise<SubmissionRecord[]>;
+  };
+};
+
 const TOKEN_SIZE = 32;
 
 function now() {
