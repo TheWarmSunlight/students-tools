@@ -1,3 +1,15 @@
+node_modules
+.next
+.next-dev
+.next-build
+dist
+coverage
+data
+.env*
+!.env.example
+playwright-report
+test-results
+tsconfig.tsbuildinfo
 .superpowers
 .worktrees
 worktrees
