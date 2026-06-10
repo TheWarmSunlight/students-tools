@@ -9,7 +9,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "deploy:check": "node scripts/deploy/check-production-readiness.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^11.10.0",
