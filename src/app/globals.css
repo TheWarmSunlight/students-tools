@@ -250,6 +250,11 @@ textarea {
 }
 
 .studentHeader,
+.studentWorkspace {
+  width: min(1180px, 100%);
+  margin: 0 auto;
+}
+
 .studentCard {
   width: min(860px, 100%);
   margin: 0 auto;
@@ -261,7 +266,7 @@ textarea {
   justify-content: space-between;
   gap: 18px;
   padding: 22px clamp(18px, 4vw, 32px);
-  border-radius: 8px 8px 0 0;
+  border-radius: 8px;
   background: var(--green);
   color: white;
 }
@@ -287,6 +292,36 @@ textarea {
   background: white;
 }
 
+.studentWorkspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+  align-items: start;
+  gap: 20px;
+  padding-top: 20px;
+}
+
+.studentQuestionPane,
+.studentAnswerPane {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 22px;
+  padding: clamp(20px, 4vw, 28px);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+}
+
+.studentQuestionPane {
+  max-height: calc(100vh - 190px);
+  overflow: auto;
+}
+
+.studentAnswerPane {
+  position: sticky;
+  top: 24px;
+}
+
 .identityGrid {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(120px, 1fr);
@@ -299,12 +334,8 @@ textarea {
 }
 
 .questionPrompt {
-  min-height: 96px;
-  padding: 18px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #fffdf8;
-  font-size: clamp(22px, 4vw, 34px);
+  min-height: 0;
+  font-size: clamp(18px, 2.5vw, 26px);
   line-height: 1.45;
   white-space: pre-wrap;
 }
@@ -598,6 +629,7 @@ textarea {
 
   .dashboardGrid,
   .reportGrid,
+  .studentWorkspace,
   .projectorSurface .qrLayout {
     grid-template-columns: 1fr;
   }
@@ -613,6 +645,14 @@ textarea {
   .studentHeader {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .studentQuestionPane {
+    max-height: none;
+  }
+
+  .studentAnswerPane {
+    position: static;
   }
 }
 
@@ -639,8 +679,15 @@ textarea {
   }
 
   .studentHeader,
-  .studentCard {
+  .studentCard,
+  .studentQuestionPane,
+  .studentAnswerPane {
     border-radius: 0;
+  }
+
+  .studentWorkspace {
+    gap: 0;
+    padding-top: 0;
   }
 
   .identityGrid,

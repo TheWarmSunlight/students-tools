@@ -68,6 +68,14 @@ async function createWorkbookFixture() {
   return filePath;
 }
 
+function requireBox(
+  box: { x: number; y: number; width: number; height: number } | null,
+  label: string,
+) {
+  expect(box, `${label} should be visible`).not.toBeNull();
+  return box as { x: number; y: number; width: number; height: number };
+}
+
 test("teacher imports excel and student submits answer", async ({ page, context }) => {
   const filePath = await createWorkbookFixture();
 
@@ -83,9 +91,36 @@ test("teacher imports excel and student submits answer", async ({ page, context 
 
   const studentHref = await page.getByTestId("student-link-Q1").getAttribute("href");
   expect(studentHref).toBeTruthy();
+  const studentPath = new URL(studentHref!).pathname;
 
   const studentPage = await context.newPage();
-  await studentPage.goto(studentHref!);
+  await studentPage.goto(studentPath);
+  const desktopQuestionBox = requireBox(
+    await studentPage.getByTestId("student-question-pane").boundingBox(),
+    "desktop question pane",
+  );
+  const desktopAnswerBox = requireBox(
+    await studentPage.getByTestId("student-answer-pane").boundingBox(),
+    "desktop answer pane",
+  );
+  expect(desktopQuestionBox.x + desktopQuestionBox.width).toBeLessThan(desktopAnswerBox.x);
+
+  const mobileStudentPage = await context.newPage();
+  await mobileStudentPage.setViewportSize({ width: 390, height: 900 });
+  await mobileStudentPage.goto(studentPath);
+  const mobileQuestionBox = requireBox(
+    await mobileStudentPage.getByTestId("student-question-pane").boundingBox(),
+    "mobile question pane",
+  );
+  const mobileAnswerBox = requireBox(
+    await mobileStudentPage.getByTestId("student-answer-pane").boundingBox(),
+    "mobile answer pane",
+  );
+  expect(mobileQuestionBox.y + mobileQuestionBox.height).toBeLessThanOrEqual(
+    mobileAnswerBox.y,
+  );
+  await mobileStudentPage.close();
+
   await studentPage.getByTestId("student-name-input").fill("小明");
   await studentPage.getByTestId("student-seat-input").fill("01");
   await studentPage.getByTestId("answer-input-0").fill("1/2");

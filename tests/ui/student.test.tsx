@@ -7,6 +7,7 @@ import QuestionRenderer, {
   updateAnswerAtIndex,
   type StudentQuestion,
 } from "@/components/QuestionRenderer";
+import StudentAnswerLayout from "@/components/StudentAnswerLayout";
 
 function question(overrides: Partial<StudentQuestion>): StudentQuestion {
   return {
@@ -22,6 +23,32 @@ function question(overrides: Partial<StudentQuestion>): StudentQuestion {
 }
 
 describe("student UI components", () => {
+  it("renders scanned questions before the answer form in split panes", () => {
+    const html = renderToStaticMarkup(
+      <StudentAnswerLayout
+        question={question({ type: "blank", itemCount: 2 })}
+        identity={{ name: "", seatNo: "" }}
+        answers={["", ""]}
+        canSubmit
+        isEnded={false}
+        isDraft={false}
+        isSubmitting={false}
+        formError=""
+        submitResult={null}
+        onIdentityChange={() => undefined}
+        onAnswersChange={() => undefined}
+      />,
+    );
+
+    expect(html).toContain('data-testid="student-question-pane"');
+    expect(html).toContain('data-testid="student-answer-pane"');
+    expect(html.indexOf('data-testid="student-question-pane"')).toBeLessThan(
+      html.indexOf('data-testid="student-answer-pane"'),
+    );
+    expect(html).toContain('data-testid="student-name-input"');
+    expect(html).toContain('data-testid="answer-input-0"');
+  });
+
   it("renders answer controls for blank, choice, and matching questions", () => {
     const noop = () => undefined;
     const blankHtml = renderToStaticMarkup(

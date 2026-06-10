@@ -2,10 +2,8 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import QuestionRenderer, {
-  normalizeAnswers,
-  type StudentQuestion,
-} from "@/components/QuestionRenderer";
+import { normalizeAnswers, type StudentQuestion } from "@/components/QuestionRenderer";
+import StudentAnswerLayout from "@/components/StudentAnswerLayout";
 import {
   createLoadedQuestionState,
   emptyStudentIdentity,
@@ -214,63 +212,20 @@ export default function StudentPage() {
         <span className={statusClass}>{statusText(question.status)}</span>
       </header>
 
-      <form className="studentCard" onSubmit={handleSubmit}>
-        <section className="identityGrid" aria-label="学生信息">
-          <label className="formField">
-            <span>姓名</span>
-            <input
-              data-testid="student-name-input"
-              type="text"
-              value={identity.name}
-              placeholder="请输入姓名"
-              onChange={(event) => setIdentity({ ...identity, name: event.currentTarget.value })}
-            />
-          </label>
-          <label className="formField">
-            <span>座号</span>
-            <input
-              data-testid="student-seat-input"
-              type="text"
-              value={identity.seatNo}
-              placeholder="例如 01"
-              inputMode="numeric"
-              onChange={(event) => setIdentity({ ...identity, seatNo: event.currentTarget.value })}
-            />
-          </label>
-        </section>
-
-        <section className="questionBlock">
-          <div className="questionPrompt">{question.prompt}</div>
-          <QuestionRenderer
-            question={question}
-            answers={answers}
-            onAnswersChange={updateAnswers}
-            disabled={!canSubmit}
-          />
-        </section>
-
-        {isEnded ? <p className="noticeText">课堂已结束，当前无法提交。</p> : null}
-        {question.status === "draft" ? <p className="noticeText">课堂未开始，请等待老师开始。</p> : null}
-        {formError ? <p className="errorText">{formError}</p> : null}
-        {submitResult ? (
-          <div className="submittedState" role="status">
-            <strong>提交成功</strong>
-            <span>{submitResult.allCorrect ? "全部正确" : "已提交"}</span>
-            <span>第 {submitResult.submitCount} 次提交</span>
-          </div>
-        ) : null}
-
-        <div className="actionRow">
-          <button
-            data-testid="submit-answer-button"
-            className="primaryButton largeButton"
-            type="submit"
-            disabled={!canSubmit}
-          >
-            {isSubmitting ? "提交中" : submitResult ? "再次提交" : "提交答案"}
-          </button>
-        </div>
-      </form>
+      <StudentAnswerLayout
+        question={question}
+        identity={identity}
+        answers={answers}
+        canSubmit={canSubmit}
+        isEnded={isEnded}
+        isDraft={question.status === "draft"}
+        isSubmitting={isSubmitting}
+        formError={formError}
+        submitResult={submitResult}
+        onSubmit={handleSubmit}
+        onIdentityChange={setIdentity}
+        onAnswersChange={updateAnswers}
+      />
     </main>
   );
 }
