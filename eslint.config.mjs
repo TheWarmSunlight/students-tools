@@ -16,6 +16,8 @@ const eslintConfig = [
     ".next/**",
     ".next-dev/**",
     ".next-build/**",
+    ".worktrees/**",
+    "worktrees/**",
     "dist/**",
     "coverage/**",
     "playwright-report/**",
