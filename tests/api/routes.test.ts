@@ -265,6 +265,36 @@ describe("API routes", () => {
     expect(await jsonBody(endedResponse)).toMatchObject({ status: "ended" });
   });
 
+  it("uses request origin for classroom links when app base url is not configured", async () => {
+    const previousBaseUrl = process.env.APP_BASE_URL;
+    delete process.env.APP_BASE_URL;
+
+    try {
+      const questionSetId = await importSampleQuestionSet();
+      const response = await createClassroom(
+        jsonPost("http://192.168.31.6:3000/api/classrooms", {
+          questionSetId,
+          expectedCount: 2,
+        }),
+      );
+      const body = await jsonBody(response);
+
+      expect(response.status).toBe(200);
+      expect(body.teacherUrl).toEqual(
+        expect.stringMatching(/^http:\/\/192\.168\.31\.6:3000\/teacher\/report\//),
+      );
+      expect(body.questions).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            studentUrl: expect.stringMatching(/^http:\/\/192\.168\.31\.6:3000\/student\//),
+          }),
+        ]),
+      );
+    } finally {
+      restoreEnv("APP_BASE_URL", previousBaseUrl);
+    }
+  });
+
   it("requires matching teacher tokens for classroom start and end routes", async () => {
     const classroom = await createSampleClassroom();
 

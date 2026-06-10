@@ -15,6 +15,10 @@ async function readJsonObject(request: Request): Promise<Record<string, unknown>
   return recordFrom(body);
 }
 
+function classroomBaseUrl(request: Request) {
+  return process.env.APP_BASE_URL || new URL(request.url).origin;
+}
+
 export async function POST(request: Request) {
   const body = await readJsonObject(request);
   const questionSetId = typeof body?.questionSetId === "string" ? body.questionSetId.trim() : "";
@@ -30,7 +34,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "题目集不存在或没有题目" }, { status: 404 });
   }
 
-  const service = createClassroomService(repos);
+  const service = createClassroomService(repos, classroomBaseUrl(request));
 
   try {
     const classroom = await service.createClassroom(questionSetId, Number(expectedCount));
